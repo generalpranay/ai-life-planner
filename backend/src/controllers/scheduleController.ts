@@ -98,8 +98,6 @@ export async function generateWeekSchedule(req: Request, res: Response) {
     const path = require("path");
 
     // Construct path to python script
-    // __dirname is .../backend/src/controllers or .../backend/dist/controllers
-    // relative path to project root is ../../../
     const scriptPath = path.resolve(
       __dirname,
       "../../../ai_scheduler/run_scheduler.py"

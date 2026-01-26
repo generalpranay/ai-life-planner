@@ -95,9 +95,6 @@ class AIScheduler:
                 )
                  # Save immediately
                  saved = self.db.create_schedule_block(block)
-                 # We don't add to created_blocks here because we return everything at end, 
-                 # but we count them. Actually, let's add to created_blocks logic below?
-                 # No, standard logic returns created_blocks.
                  created_blocks.append(saved)
         
         tasks = flexible_tasks
