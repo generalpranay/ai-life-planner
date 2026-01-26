@@ -1,0 +1,15 @@
+{
+  "name": "ai-life-planner",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "setup": "cd backend && npm install",
+    "test:backend": "cd backend && npm test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}

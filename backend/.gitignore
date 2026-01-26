@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+.env
+.DS_Store
+*.log
+test_output.txt
+debug_output.txt
+debug_dump.json
+check_auth.js
+check_scheduler.js
+test_run_scheduler.ts
