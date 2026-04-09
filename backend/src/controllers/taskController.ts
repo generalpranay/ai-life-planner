@@ -82,6 +82,7 @@ async function syncToSchedule(task: any) {
         [task.user_id, startDt.toISOString(), endDt.toISOString(), task.id]
       );
 
+      // IF a schedule overlap is found with an existing fixed task block
       if (conflictRes.rows.length > 0) {
         const existingTask = conflictRes.rows[0];
         const currentPriority = task.priority || 3;
@@ -89,17 +90,23 @@ async function syncToSchedule(task: any) {
 
         console.warn(`Conflict for task ${task.id} vs ${existingTask.task_id}. Priorities: ${currentPriority} vs ${existingPriority}`);
 
+        // Scenarios for automatic or manual priority-based conflict resolution:
         if (currentPriority > existingPriority) {
+           // 1) Auto-Resolution: New task is higher priority. 
+           // We displace the old task by removing its strict start/end times and making it flexible.
            console.log("New task higher priority. Displacing old task.");
            await pool.query("UPDATE tasks SET start_time = NULL, end_time = NULL WHERE id = $1", [existingTask.task_id]);
            await pool.query("DELETE FROM scheduled_blocks WHERE task_id = $1", [existingTask.task_id]);
         } else if (currentPriority < existingPriority) {
+           // 2) Auto-Resolution: New task is lower priority. 
+           // Prevent the new task from taking the spot, auto-convert the new one to flexible instead.
            console.log("New task lower priority. Converting new task to flexible.");
            await pool.query("UPDATE tasks SET start_time = NULL, end_time = NULL WHERE id = $1", [task.id]);
            const err: any = new Error('lower_priority_conflict');
            throw err;
         } else {
-           // Equal Priority
+           // 3) Manual Resolution: Exact tie in priority.
+           // Throw an error block intercepted by the UI frontend to prompt the user for manual decision.
            const err: any = new Error('equal_priority_conflict');
            err.conflictData = { 
                existingTaskId: existingTask.task_id,
@@ -316,14 +323,18 @@ export async function createTask(req: Request, res: Response) {
 
 export async function resolveConflict(req: Request, res: Response) {
   const userId = (req as any).userId;
+  // winnerTaskId: The task chosen to keep its fixed time constraints.
+  // loserTaskId: The task that overlaps and will be pushed to the AI queue.
   const { winnerTaskId, loserTaskId } = req.body;
 
   try {
-     // Push loser forward (make flexible)
+     // Push loser forward (make flexible) by removing strict constraints.
+     // This allows the python AI Scheduler to pick it up later and place it 
+     // in the next available free time gap.
      await pool.query("UPDATE tasks SET start_time = NULL, end_time = NULL WHERE id = $1 AND user_id = $2", [loserTaskId, userId]);
      await pool.query("DELETE FROM scheduled_blocks WHERE task_id = $1 AND user_id = $2", [loserTaskId, userId]);
      
-     // Fetch winner task to trigger syncToSchedule to place it in
+     // Fetch winner task to trigger syncToSchedule to lock it in place.
      const winnerRes = await pool.query("SELECT * FROM tasks WHERE id = $1 AND user_id = $2", [winnerTaskId, userId]);
      if (winnerRes.rows.length > 0) {
         try {

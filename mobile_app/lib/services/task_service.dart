@@ -114,7 +114,10 @@ class TaskService {
     return null;
   }
 
-  /// Resolve a task conflict
+  /// Resolve a task conflict when two tasks request the same time slot with equal priority.
+  /// - [winnerTaskId]: This task will keep the time slot block.
+  /// - [loserTaskId]: This task gets removed from the fixed schedule, becomes flexible, 
+  ///   and gets re-allocated automatically by the Python AI scheduler.
   static Future<bool> resolveConflict(int winnerTaskId, int loserTaskId) async {
     final token = await AuthService.getToken();
     final response = await ApiService.post(

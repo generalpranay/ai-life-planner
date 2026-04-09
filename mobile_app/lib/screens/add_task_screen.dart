@@ -172,10 +172,13 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       if (mounted) Navigator.pop(context, true);
     } else {
       if (result.conflictData != null && result.conflictData!['conflict'] == true && mounted) {
+        // Equal priority conflict intercepted here!
+        // We capture both task IDs to allow the user to make a manual scheduling choice.
         final newTaskId = result.conflictData!['newTaskId'];
         final existingTaskId = result.conflictData!['existingTaskId'];
         final existingTaskTitle = result.conflictData!['existingTaskTitle'];
         
+        // Show an interactive prompt to resolve the tie.
         await showDialog(
           context: context,
           barrierDismissible: false,
@@ -185,6 +188,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
             actions: [
               TextButton(
                 onPressed: () async {
+                  // Keep Existing: The new task becomes flexible and gets pushed to the AI queue
                   final success = await TaskService.resolveConflict(existingTaskId, newTaskId);
                   if (context.mounted) {
                     Navigator.pop(context); // close dialog
@@ -199,6 +203,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
               ),
               FilledButton(
                 onPressed: () async {
+                  // Prioritize New: The existing task becomes flexible, the new task is locked in at the desired time.
                   final success = await TaskService.resolveConflict(newTaskId, existingTaskId);
                   if (context.mounted) {
                     Navigator.pop(context); // close dialog
