@@ -145,8 +145,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     }
     
     final checklistItems = _checklistCtrls
-        .map((c) => {"text": c.text, "done": false})
-        .where((i) => i["text"].toString().trim().isNotEmpty)
+        .map((c) => c.text)
+        .where((i) => i.trim().isNotEmpty)
         .toList();
 
     final result = await TaskService.createTask(
@@ -163,7 +163,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       endTime: _isRecurring ? _endTime : _endTime,
       dateRangeStart: _isRecurring ? _rangeStart : null,
       dateRangeEnd: _isRecurring ? _rangeEnd : null,
-      checklist: checklistItems.isNotEmpty ? checklistItems : null,
+      checklist: checklistItems,
     );
 
     setState(() => _loading = false);
@@ -171,7 +171,51 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     if (result.success) {
       if (mounted) Navigator.pop(context, true);
     } else {
-      if (mounted) {
+      if (result.conflictData != null && result.conflictData!['conflict'] == true && mounted) {
+        final newTaskId = result.conflictData!['newTaskId'];
+        final existingTaskId = result.conflictData!['existingTaskId'];
+        final existingTaskTitle = result.conflictData!['existingTaskTitle'];
+        
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text("Time Conflict Detected!"),
+            content: Text("The new task conflicts with '$existingTaskTitle'. Which task should take priority?"),
+            actions: [
+              TextButton(
+                onPressed: () async {
+                  final success = await TaskService.resolveConflict(existingTaskId, newTaskId);
+                  if (context.mounted) {
+                    Navigator.pop(context); // close dialog
+                    if (success) {
+                      Navigator.pop(this.context, true); // close screen
+                    } else {
+                      ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text("Failed to resolve conflict")));
+                    }
+                  }
+                },
+                child: const Text("Keep Existing"),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  final success = await TaskService.resolveConflict(newTaskId, existingTaskId);
+                  if (context.mounted) {
+                    Navigator.pop(context); // close dialog
+                    if (success) {
+                      Navigator.pop(this.context, true); // close screen
+                    } else {
+                      ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text("Failed to resolve conflict")));
+                    }
+                  }
+                },
+                style: FilledButton.styleFrom(backgroundColor: Colors.teal),
+                child: const Text("Prioritize New"),
+              ),
+            ],
+          ),
+        );
+      } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
            SnackBar(content: Text(result.errorMessage ?? "Failed to create task")),
         );

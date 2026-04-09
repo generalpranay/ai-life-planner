@@ -9,7 +9,8 @@ import 'auth_service.dart';
 class TaskCreationResult {
   final bool success;
   final String? errorMessage;
-  TaskCreationResult(this.success, [this.errorMessage]);
+  final Map<String, dynamic>? conflictData; // Additional data for equal priority conflict
+  TaskCreationResult(this.success, [this.errorMessage, this.conflictData]);
 }
 
 class TaskService {
@@ -84,7 +85,7 @@ class TaskService {
     } else if (response.statusCode == 409) {
        // Conflict
        final data = jsonDecode(response.body);
-       return TaskCreationResult(false, data['message'] ?? "Time slot overlap detected");
+       return TaskCreationResult(false, data['message'] ?? "Time slot overlap detected", data);
     } else {
        return TaskCreationResult(false, "Failed to create task");
     }
@@ -111,6 +112,20 @@ class TaskService {
       return Task.fromJson(jsonDecode(response.body));
     }
     return null;
+  }
+
+  /// Resolve a task conflict
+  static Future<bool> resolveConflict(int winnerTaskId, int loserTaskId) async {
+    final token = await AuthService.getToken();
+    final response = await ApiService.post(
+      '${ApiConfig.baseUrl}${ApiConfig.tasks}/resolve-conflict',
+      token: token,
+      body: {
+        'winnerTaskId': winnerTaskId,
+        'loserTaskId': loserTaskId,
+      },
+    );
+    return response.statusCode == 200;
   }
 
   /// Update a checklist item's done status

@@ -1,7 +1,7 @@
-
 import 'package:flutter/material.dart';
 import '../models/schedule_block.dart';
 import 'package:intl/intl.dart';
+import '../theme/app_theme.dart';
 
 class CustomAgendaView extends StatelessWidget {
   final DateTime date;
@@ -17,6 +17,8 @@ class CustomAgendaView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     // Filter blocks for this specific date
     final dayBlocks = blocks.where((block) => 
       block.startDatetime.year == date.year && 
@@ -26,7 +28,7 @@ class CustomAgendaView extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        const hourHeight = 70.0; // Increased height for better readability
+        const hourHeight = 80.0; // Taller for premium feel
         final totalHeight = hourHeight * 24;
         
         return SingleChildScrollView(
@@ -35,6 +37,17 @@ class CustomAgendaView extends StatelessWidget {
             height: totalHeight,
             child: Stack(
               children: [
+                // Vertical Timeline Line
+                Positioned(
+                  top: 0,
+                  bottom: 0,
+                  left: 69,
+                  width: 2,
+                  child: Container(
+                    color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                  ),
+                ),
+                
                 // Grid Lines
                 ...List.generate(24, (index) {
                   return Positioned(
@@ -43,7 +56,7 @@ class CustomAgendaView extends StatelessWidget {
                     right: 0,
                     child: Container(
                       height: 1,
-                      color: Colors.grey.shade200,
+                      color: isDark ? Colors.grey.withOpacity(0.1) : Colors.grey.shade200,
                     ),
                   );
                 }),
@@ -51,15 +64,15 @@ class CustomAgendaView extends StatelessWidget {
                 // Time Labels
                 ...List.generate(24, (index) {
                   return Positioned(
-                    top: index * hourHeight - 6,
+                    top: index * hourHeight - 8,
                     left: 8,
-                    width: 50,
+                    width: 44,
                     child: Text(
                       "${index == 0 ? 12 : index > 12 ? index - 12 : index} ${index < 12 ? 'AM' : 'PM'}",
                       style: TextStyle(
-                        fontSize: 13, 
-                        color: Colors.grey.shade500,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 12, 
+                        color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
+                        fontWeight: FontWeight.w600,
                       ),
                       textAlign: TextAlign.right,
                     ),
@@ -67,96 +80,114 @@ class CustomAgendaView extends StatelessWidget {
                 }),
 
                 // Events
-                ...dayBlocks.map((block) {
-                  final startOp = block.startDatetime.hour + (block.startDatetime.minute / 60);
-                  final endOp = block.endDatetime.hour + (block.endDatetime.minute / 60);
-                  double duration = endOp - startOp;
+                for (var block in dayBlocks) ...[
+                  Builder(builder: (context) {
+                    final startOp = block.startDatetime.hour + (block.startDatetime.minute / 60);
+                    final endOp = block.endDatetime.hour + (block.endDatetime.minute / 60);
+                    double duration = endOp - startOp;
 
-                  if (duration < 0.5) duration = 0.5;
+                    if (duration < 0.5) duration = 0.5;
 
-                  final color = _getCategoryColor(block.blockType);
+                    final color = AppTheme.getCategoryColor(block.blockType, Theme.of(context).brightness);
+                    final textColor = isDark ? Colors.white : Colors.black87;
 
-                  return Positioned(
-                    top: startOp * hourHeight + 2,
-                    left: 70,
-                    right: 16,
-                    height: (duration * hourHeight) - 4,
-                    child: GestureDetector(
-                      onTap: () => onBlockTap(block),
-                      child: Container(
-                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                        decoration: BoxDecoration(
-                          color: color.withOpacity(0.15),
-                          border: Border(
-                              left: BorderSide(color: color, width: 6),
-                          ),
-                          borderRadius: const BorderRadius.only(
-                            topRight: Radius.circular(8),
-                            bottomRight: Radius.circular(8),
-                            topLeft: Radius.circular(4),
-                            bottomLeft: Radius.circular(4),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 2,
-                              offset: const Offset(0, 2),
-                            )
-                          ]
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(_getCategoryIcon(block.blockType), size: 16, color: color),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    block.taskTitle ?? block.blockType.toUpperCase(),
-                                    style: TextStyle(
-                                      color: Colors.black87,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 13,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
+                    return Stack(
+                      children: [
+                        // Timeline Node
+                        Positioned(
+                          top: startOp * hourHeight - 5,
+                          left: 65,
+                          width: 10,
+                          height: 10,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Theme.of(context).scaffoldBackgroundColor, 
+                                width: 2
+                              ),
                             ),
-                             if (block.taskDescription != null && duration > 0.75)
-                             Padding(
-                               padding: const EdgeInsets.only(top: 4, left: 22),
-                               child: Text(
-                                 block.taskDescription!,
-                                 style: TextStyle(
-                                   fontSize: 11,
-                                   color: Colors.black54,
-                                 ),
-                                 maxLines: 2,
-                                 overflow: TextOverflow.ellipsis,
-                               ),
-                             ),
-                             if ((block.checklistTotal ?? 0) > 0)
-                               Padding(
-                                 padding: const EdgeInsets.only(top: 4, left: 22),
-                                 child: Row(
-                                   children: [
-                                     Icon(Icons.check_circle_outline, size: 12, color: color),
-                                     const SizedBox(width: 4),
-                                     Text(
-                                       "${block.checklistDone}/${block.checklistTotal}",
-                                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color),
-                                     ),
-                                   ],
-                                 ),
-                               ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
-                  );
-                }),
+                        // Event Card
+                        Positioned(
+                          top: startOp * hourHeight + 2,
+                          left: 84, // Push right from timeline
+                          right: 16,
+                          height: (duration * hourHeight) - 8,
+                          child: GestureDetector(
+                            onTap: () => onBlockTap(block),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).cardColor,
+                                border: Border(
+                                    left: BorderSide(color: color, width: 4),
+                                ),
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
+                                  )
+                                ]
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(_getCategoryIcon(block.blockType), size: 16, color: color),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          block.taskTitle ?? block.blockType.toUpperCase(),
+                                          style: TextStyle(
+                                            color: textColor,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (block.taskDescription != null && duration > 0.75)
+                                   Padding(
+                                     padding: const EdgeInsets.only(top: 6, left: 24),
+                                     child: Text(
+                                       block.taskDescription!,
+                                       style: TextStyle(
+                                         fontSize: 12,
+                                         color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                       ),
+                                       maxLines: 2,
+                                       overflow: TextOverflow.ellipsis,
+                                     ),
+                                   ),
+                                  if (duration > 1.0)
+                                   Padding(
+                                     padding: const EdgeInsets.only(top: 8, left: 24),
+                                     child: Text(
+                                       "${DateFormat('h:mm a').format(block.startDatetime)} - ${DateFormat('h:mm a').format(block.endDatetime)}",
+                                       style: TextStyle(
+                                          fontSize: 11,
+                                          color: color.withOpacity(0.8),
+                                          fontWeight: FontWeight.bold,
+                                       ),
+                                     ),
+                                   ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                ],
               ],
             ),
           ),
@@ -165,22 +196,13 @@ class CustomAgendaView extends StatelessWidget {
     );
   }
 
-   Color _getCategoryColor(String category) {
-    switch (category.toLowerCase()) {
-      case 'work': return Colors.orange;
-      case 'personal': return Colors.teal;
-      case 'exercise': return Colors.green;
-      case 'break': return Colors.purple;
-      case 'study': return Colors.indigo;
-      default: return Colors.blueGrey;
-    }
-  }
-
   IconData _getCategoryIcon(String category) {
     switch (category.toLowerCase()) {
       case 'work': return Icons.work_outline;
       case 'personal': return Icons.person_outline;
+      case 'health':
       case 'exercise': return Icons.fitness_center;
+      case 'routine': return Icons.sync;
       case 'break': return Icons.coffee;
       case 'study': return Icons.menu_book;
       default: return Icons.event;

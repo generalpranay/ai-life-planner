@@ -10,6 +10,7 @@ import '../services/auth_service.dart';
 import '../widgets/custom_agenda_view.dart';
 import 'add_task_screen.dart';
 import 'web_resources_screen.dart';
+import '../theme/app_theme.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -123,24 +124,30 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Scaffold(
-      backgroundColor: Colors.grey[50], // Light background
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.cyan.shade200,
-        title: Row(
+        backgroundColor: Colors.transparent,
+        toolbarHeight: 70,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.calendar_today, size: 20, color: Colors.white),
-            const SizedBox(width: 8),
             Text(
-              DateFormat('MMMM yyyy').format(_focusedDay),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+              "Good Morning!",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24, color: Theme.of(context).textTheme.titleLarge?.color),
+            ),
+            Text(
+              DateFormat('MMMM d, yyyy').format(_focusedDay),
+              style: TextStyle(fontSize: 14, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
             ),
           ],
         ),
         bottom: TabBar(
           controller: _tabConfig,
-          indicatorColor: Colors.amber, // Accent color
+          indicatorColor: Theme.of(context).colorScheme.primary, // Accent color
           indicatorWeight: 3,
           labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
@@ -150,7 +157,17 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           ],
         ),
         actions: [
-           IconButton(
+          IconButton(
+            icon: Icon(
+              isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+              color: isDark ? Colors.amber : Colors.indigo,
+            ),
+            onPressed: () {
+               AppTheme.themeNotifier.value = isDark ? ThemeMode.light : ThemeMode.dark;
+            },
+            tooltip: "Toggle Theme",
+          ),
+          IconButton(
             icon: const Icon(Icons.auto_awesome),
             onPressed: _generateSchedule,
             tooltip: "Generate Schedule",
@@ -231,23 +248,22 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   Widget _buildDayView() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Column(
       children: [
-        // Day selector strip
+        // Premium Day selector strip
         Container(
-           height: 90,
+           height: 100,
            decoration: BoxDecoration(
-             color: Colors.white,
-             boxShadow: [
-               BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2)),
-             ],
+             color: Theme.of(context).scaffoldBackgroundColor,
            ),
            child: ListView.builder(
-               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                scrollDirection: Axis.horizontal,
                itemCount: _getDaysUntilMonthEnd(), 
                itemBuilder: (context, index) {
-                   final d = DateTime.now().add(Duration(days: index - 2)); // Start slightly in past
+                   final d = DateTime.now().add(Duration(days: index - 2)); 
                    final isSelected = isSameDay(d, _selectedDay);
                    final isToday = isSameDay(d, DateTime.now());
                    
@@ -258,18 +274,27 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                        }),
                        child: AnimatedContainer(
                            duration: const Duration(milliseconds: 200),
-                           width: 60,
-                           margin: const EdgeInsets.symmetric(horizontal: 6),
+                           width: 64,
+                           margin: const EdgeInsets.only(right: 12),
                            decoration: BoxDecoration(
-                               color: isSelected ? Colors.cyan.shade600 : (isToday ? Colors.cyan.shade50 : Colors.grey.shade50),
-                               borderRadius: BorderRadius.circular(16),
+                               gradient: isSelected 
+                                 ? LinearGradient(
+                                     begin: Alignment.topLeft,
+                                     end: Alignment.bottomRight,
+                                     colors: isDark 
+                                       ? [Colors.deepPurple.shade400, Colors.deepPurple.shade700]
+                                       : [Colors.blueAccent.shade100, Colors.blueAccent.shade400],
+                                   )
+                                 : null,
+                               color: !isSelected ? Theme.of(context).cardColor : null,
+                               borderRadius: BorderRadius.circular(24),
                                border: Border.all(
-                                 color: isSelected ? Colors.cyan.shade600 : (isToday ? Colors.cyan.shade200 : Colors.grey.shade300),
-                                 width: isSelected ? 0 : 1,
+                                 color: isSelected ? Colors.transparent : (isToday ? Colors.blueAccent.withOpacity(0.5) : Colors.transparent),
+                                 width: 1,
                                ),
                                boxShadow: isSelected 
-                                ? [BoxShadow(color: Colors.cyan.withOpacity(0.4), blurRadius: 6, offset: const Offset(0, 4))] 
-                                : [],
+                                ? [BoxShadow(color: isDark ? Colors.deepPurple.withOpacity(0.3) : Colors.blue.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))] 
+                                : [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2))],
                            ),
                            child: Column(
                                mainAxisAlignment: MainAxisAlignment.center,
@@ -277,8 +302,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                    Text(
                                      DateFormat('E').format(d).toUpperCase(), 
                                      style: TextStyle(
-                                       color: isSelected ? Colors.white70 : Colors.grey.shade600, 
-                                       fontSize: 10,
+                                       color: isSelected ? Colors.white70 : (isDark ? Colors.grey.shade500 : Colors.grey.shade600), 
+                                       fontSize: 11,
                                        fontWeight: FontWeight.bold
                                      )
                                    ),
@@ -288,7 +313,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                      style: TextStyle(
                                        fontWeight: FontWeight.bold, 
                                        fontSize: 18, 
-                                       color: isSelected ? Colors.white : Colors.black87
+                                       color: isSelected ? Colors.white : (isDark ? Colors.white : Colors.black87)
                                      )
                                    ),
                                ],

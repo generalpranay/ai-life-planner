@@ -71,30 +71,50 @@ async function syncToSchedule(task: any) {
 
       // Check overlap
       const conflictRes = await pool.query(
-        `SELECT id, task_id FROM scheduled_blocks 
-         WHERE user_id = $1 
-           AND start_datetime < $3 
-           AND end_datetime > $2 
-           AND task_id != $4`,
+        `SELECT b.id, b.task_id, t.priority, t.title 
+         FROM scheduled_blocks b
+         JOIN tasks t ON b.task_id = t.id
+         WHERE b.user_id = $1 
+           AND b.start_datetime < $3 
+           AND b.end_datetime > $2 
+           AND b.task_id != $4
+         LIMIT 1`,
         [task.user_id, startDt.toISOString(), endDt.toISOString(), task.id]
       );
 
       if (conflictRes.rows.length > 0) {
-        console.warn(`Conflict for task ${task.id} on ${startDt.toISOString()}. Skipping this occurrence.`);
-        continue; // Skip this one, or throw? User might want to know. 
-        // For recurring, maybe just skip conflicts is safer than failing whole creation.
-        // But for single, we threw error. 
-        // Let's THROW if it's single, WARN if recurring?
-        // Actually user said "it does not display", implies we should try to make it display.
-        // Let's just log and skip for now to avoid blowing up the loop.
-      } else {
-        await pool.query(
-          `INSERT INTO scheduled_blocks 
-            (user_id, task_id, start_datetime, end_datetime, block_type, generated_by_ai)
-           VALUES ($1, $2, $3, $4, $5, FALSE)`,
-          [task.user_id, task.id, startDt.toISOString(), endDt.toISOString(), task.category || 'study']
-        );
+        const existingTask = conflictRes.rows[0];
+        const currentPriority = task.priority || 3;
+        const existingPriority = existingTask.priority || 3;
+
+        console.warn(`Conflict for task ${task.id} vs ${existingTask.task_id}. Priorities: ${currentPriority} vs ${existingPriority}`);
+
+        if (currentPriority > existingPriority) {
+           console.log("New task higher priority. Displacing old task.");
+           await pool.query("UPDATE tasks SET start_time = NULL, end_time = NULL WHERE id = $1", [existingTask.task_id]);
+           await pool.query("DELETE FROM scheduled_blocks WHERE task_id = $1", [existingTask.task_id]);
+        } else if (currentPriority < existingPriority) {
+           console.log("New task lower priority. Converting new task to flexible.");
+           await pool.query("UPDATE tasks SET start_time = NULL, end_time = NULL WHERE id = $1", [task.id]);
+           const err: any = new Error('lower_priority_conflict');
+           throw err;
+        } else {
+           // Equal Priority
+           const err: any = new Error('equal_priority_conflict');
+           err.conflictData = { 
+               existingTaskId: existingTask.task_id,
+               existingTaskTitle: existingTask.title
+           };
+           throw err;
+        }
       }
+
+      await pool.query(
+        `INSERT INTO scheduled_blocks 
+          (user_id, task_id, start_datetime, end_datetime, block_type, generated_by_ai)
+         VALUES ($1, $2, $3, $4, $5, FALSE)`,
+        [task.user_id, task.id, startDt.toISOString(), endDt.toISOString(), task.category || 'study']
+      );
     }
 
     console.log(`Synced task ${task.id} to schedule. Created ${datesToSchedule.length} blocks checked.`);
@@ -267,18 +287,54 @@ export async function createTask(req: Request, res: Response) {
     } catch (err: any) {
       // If sync failed (likely conflict), we should probably rollback the task creation?
       // Or just warn? The user asked for "error".
-      // Let's delete the task we just created to be safe, so we don't end up with unscheduled task that was meant to be fixed.
-      await pool.query("DELETE FROM tasks WHERE id = $1", [task.id]);
-
-      if (err.message.includes('Time overlap')) {
-        res.status(409).json({ message: err.message });
+      if (err.message === 'lower_priority_conflict') {
+        // Automatically displaced, task remains flexible. Return success.
+        res.status(201).json(task);
+      } else if (err.message === 'equal_priority_conflict') {
+        // Equal priority! Do not delete task. Tell client there is a conflict to resolve.
+        res.status(409).json({ 
+            message: "Time overlap", 
+            conflict: true, 
+            newTaskId: task.id, 
+            existingTaskId: err.conflictData.existingTaskId,
+            existingTaskTitle: err.conflictData.existingTaskTitle
+        });
       } else {
-        res.status(500).json({ message: "Failed to schedule task due to error" });
+        await pool.query("DELETE FROM tasks WHERE id = $1", [task.id]);
+        if (err.message.includes('Time overlap')) {
+          res.status(409).json({ message: err.message });
+        } else {
+          res.status(500).json({ message: "Failed to schedule task due to error" });
+        }
       }
     }
   } catch (err) {
     console.error("createTask error:", err);
     res.status(500).json({ message: "Server error" });
+  }
+}
+
+export async function resolveConflict(req: Request, res: Response) {
+  const userId = (req as any).userId;
+  const { winnerTaskId, loserTaskId } = req.body;
+
+  try {
+     // Push loser forward (make flexible)
+     await pool.query("UPDATE tasks SET start_time = NULL, end_time = NULL WHERE id = $1 AND user_id = $2", [loserTaskId, userId]);
+     await pool.query("DELETE FROM scheduled_blocks WHERE task_id = $1 AND user_id = $2", [loserTaskId, userId]);
+     
+     // Fetch winner task to trigger syncToSchedule to place it in
+     const winnerRes = await pool.query("SELECT * FROM tasks WHERE id = $1 AND user_id = $2", [winnerTaskId, userId]);
+     if (winnerRes.rows.length > 0) {
+        try {
+           await syncToSchedule(winnerRes.rows[0]);
+        } catch (e) { console.error("Error scheduling winner", e); }
+     }
+     
+     res.status(200).json({ message: "Conflict resolved" });
+  } catch (err) {
+     console.error("resolveConflict error:", err);
+     res.status(500).json({ message: "Server error" });
   }
 }
 
