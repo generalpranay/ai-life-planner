@@ -10,6 +10,7 @@ import '../services/auth_service.dart';
 import '../widgets/custom_agenda_view.dart';
 import 'add_task_screen.dart';
 import 'web_resources_screen.dart';
+import 'insights_screen.dart';
 import '../theme/app_theme.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -204,6 +205,18 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const WebResourcesScreen()));
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.auto_awesome, color: Colors.purple.shade300),
+              title: const Text("AI Insights"),
+              subtitle: const Text("Behavior & productivity analysis"),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const InsightsScreen()),
+                );
               },
             ),
             const Divider(),

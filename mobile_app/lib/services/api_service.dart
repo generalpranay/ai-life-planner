@@ -24,6 +24,18 @@ class ApiService {
     );
   }
 
+  static Future<http.Response> patch(
+    String url, {
+    Map<String, dynamic>? body,
+    String? token,
+  }) async {
+    return await http.patch(
+      Uri.parse(url),
+      headers: _headers(token),
+      body: jsonEncode(body),
+    );
+  }
+
   static Future<http.Response> delete(
     String url, {
     String? token,

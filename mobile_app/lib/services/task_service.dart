@@ -134,7 +134,7 @@ class TaskService {
   /// Update a checklist item's done status
   static Future<bool> updateChecklistItem(int itemId, bool done) async {
     final token = await AuthService.getToken();
-    final response = await ApiService.post(
+    final response = await ApiService.patch(
       '${ApiConfig.baseUrl}/api/tasks/checklist/$itemId',
       token: token,
       body: {'done': done},

@@ -7,6 +7,7 @@ import taskRoutes from "./routes/taskRoutes";
 import eventRoutes from "./routes/eventRoutes";
 import scheduleRoutes from "./routes/scheduleRoutes";
 import webResourceRoutes from "./routes/webResourceRoutes";
+import aiRoutes from "./routes/aiRoutes";
 
 dotenv.config();
 
@@ -24,5 +25,6 @@ app.use("/api/tasks", taskRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/schedule", scheduleRoutes);
 app.use("/api/web-resources", webResourceRoutes);
+app.use("/api/ai", aiRoutes);
 
 export default app;

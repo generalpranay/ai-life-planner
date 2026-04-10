@@ -47,6 +47,39 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       });
   }
 
+  /// A small styled row shown inside the conflict dialog for each competing task.
+  Widget _conflictOption(IconData icon, String title, Color color, String badge) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(fontWeight: FontWeight.w600, color: color),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(badge, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -172,50 +205,80 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       if (mounted) Navigator.pop(context, true);
     } else {
       if (result.conflictData != null && result.conflictData!['conflict'] == true && mounted) {
-        // Equal priority conflict intercepted here!
-        // We capture both task IDs to allow the user to make a manual scheduling choice.
-        final newTaskId = result.conflictData!['newTaskId'];
+        // Equal-priority conflict: both tasks will be kept and scheduled back-to-back.
+        // The user just picks which one goes first.
+        final newTaskId      = result.conflictData!['newTaskId'];
         final existingTaskId = result.conflictData!['existingTaskId'];
-        final existingTaskTitle = result.conflictData!['existingTaskTitle'];
-        
-        // Show an interactive prompt to resolve the tie.
+        final existingTitle  = result.conflictData!['existingTaskTitle'] ?? 'existing task';
+        final newTitle       = _titleCtrl.text;
+
         await showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (context) => AlertDialog(
-            title: const Text("Time Conflict Detected!"),
-            content: Text("The new task conflicts with '$existingTaskTitle'. Which task should take priority?"),
+          builder: (ctx) => AlertDialog(
+            icon: const Icon(Icons.swap_horiz_rounded, size: 36, color: Colors.orange),
+            title: const Text("⚡ Schedule Conflict"),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Both tasks have equal priority and overlap. They will be scheduled back-to-back automatically.",
+                  style: TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                const Text("Which task goes FIRST?", style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                _conflictOption(Icons.push_pin, existingTitle, Colors.blueAccent, "Already scheduled"),
+                const SizedBox(height: 6),
+                _conflictOption(Icons.add_task, newTitle, Colors.teal, "Newly added"),
+              ],
+            ),
             actions: [
-              TextButton(
+              // "Existing first" → existing is winner, new goes after
+              OutlinedButton(
                 onPressed: () async {
-                  // Keep Existing: The new task becomes flexible and gets pushed to the AI queue
-                  final success = await TaskService.resolveConflict(existingTaskId, newTaskId);
-                  if (context.mounted) {
-                    Navigator.pop(context); // close dialog
-                    if (success) {
-                      Navigator.pop(this.context, true); // close screen
+                  Navigator.pop(ctx);
+                  setState(() => _loading = true);
+                  final ok = await TaskService.resolveConflict(existingTaskId, newTaskId);
+                  setState(() => _loading = false);
+                  if (mounted) {
+                    if (ok) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("'$existingTitle' first, then '$newTitle'")),
+                      );
+                      Navigator.pop(context, true);
                     } else {
-                      ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text("Failed to resolve conflict")));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Failed to resolve conflict")),
+                      );
                     }
                   }
                 },
-                child: const Text("Keep Existing"),
+                child: Text(existingTitle, overflow: TextOverflow.ellipsis),
               ),
+              // "New first" → new task is winner, existing goes after
               FilledButton(
                 onPressed: () async {
-                  // Prioritize New: The existing task becomes flexible, the new task is locked in at the desired time.
-                  final success = await TaskService.resolveConflict(newTaskId, existingTaskId);
-                  if (context.mounted) {
-                    Navigator.pop(context); // close dialog
-                    if (success) {
-                      Navigator.pop(this.context, true); // close screen
+                  Navigator.pop(ctx);
+                  setState(() => _loading = true);
+                  final ok = await TaskService.resolveConflict(newTaskId, existingTaskId);
+                  setState(() => _loading = false);
+                  if (mounted) {
+                    if (ok) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("'$newTitle' first, then '$existingTitle'")),
+                      );
+                      Navigator.pop(context, true);
                     } else {
-                      ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text("Failed to resolve conflict")));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Failed to resolve conflict")),
+                      );
                     }
                   }
                 },
                 style: FilledButton.styleFrom(backgroundColor: Colors.teal),
-                child: const Text("Prioritize New"),
+                child: Text(newTitle, overflow: TextOverflow.ellipsis),
               ),
             ],
           ),

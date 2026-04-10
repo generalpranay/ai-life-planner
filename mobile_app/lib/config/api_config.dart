@@ -10,4 +10,5 @@ class ApiConfig {
   static const String scheduleGenerate = "/api/schedule/generate-week";
   static const String scheduleWeek = "/api/schedule/week";
   static const String webResources = "/api/web-resources";
+  static const String aiAnalyze    = "/api/ai/analyze";
 }

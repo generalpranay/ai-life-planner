@@ -1,7 +1,42 @@
 import { Request, Response } from "express";
 import { pool } from "../config/db";
 
-// Helper to sync fixed-time tasks to scheduled_blocks
+/**
+ * Helper: given a task, schedule it starting at `afterTime` (a Date),
+ * preserving the task's original duration. Updates the task's start_time/end_time
+ * in the DB and inserts a new scheduled_block.
+ */
+async function scheduleTaskAfter(task: any, afterTime: Date): Promise<void> {
+  // Calculate original duration in minutes
+  const [origStartH, origStartM] = (task.start_time || '00:00').split(':').map(Number);
+  const [origEndH, origEndM]   = (task.end_time   || '01:00').split(':').map(Number);
+  const durationMs = ((origEndH * 60 + origEndM) - (origStartH * 60 + origStartM)) * 60000;
+  const safeDuration = durationMs > 0 ? durationMs : 60 * 60000; // fallback: 1 hour
+
+  const newStart = new Date(afterTime);
+  const newEnd   = new Date(newStart.getTime() + safeDuration);
+
+  // Persist new times back to the task row
+  const newStartStr = `${String(newStart.getUTCHours()).padStart(2,'0')}:${String(newStart.getUTCMinutes()).padStart(2,'0')}`;
+  const newEndStr   = `${String(newEnd.getUTCHours()).padStart(2,'0')}:${String(newEnd.getUTCMinutes()).padStart(2,'0')}`;
+  await pool.query('UPDATE tasks SET start_time = $1, end_time = $2 WHERE id = $3', [newStartStr, newEndStr, task.id]);
+
+  // Remove any stale manual blocks for this task
+  await pool.query('DELETE FROM scheduled_blocks WHERE task_id = $1 AND generated_by_ai = FALSE', [task.id]);
+
+  // Build the date to use for the block (same date as afterTime)
+  const blockDate = newStart;
+
+  await pool.query(
+    `INSERT INTO scheduled_blocks
+       (user_id, task_id, start_datetime, end_datetime, block_type, generated_by_ai)
+     VALUES ($1, $2, $3, $4, $5, FALSE)`,
+    [task.user_id, task.id, newStart.toISOString(), newEnd.toISOString(), task.category || 'study']
+  );
+
+  console.log(`Task ${task.id} rescheduled: ${newStartStr} - ${newEndStr} (after conflict winner)`);
+}
+
 // Helper to sync fixed-time tasks to scheduled_blocks
 async function syncToSchedule(task: any) {
   // If no start/end time, we can't schedule it fixed
@@ -84,40 +119,54 @@ async function syncToSchedule(task: any) {
 
       // IF a schedule overlap is found with an existing fixed task block
       if (conflictRes.rows.length > 0) {
-        const existingTask = conflictRes.rows[0];
+        const existingTaskRow = conflictRes.rows[0];
         const currentPriority = task.priority || 3;
-        const existingPriority = existingTask.priority || 3;
+        const existingPriority = existingTaskRow.priority || 3;
 
-        console.warn(`Conflict for task ${task.id} vs ${existingTask.task_id}. Priorities: ${currentPriority} vs ${existingPriority}`);
+        console.warn(`Conflict for task ${task.id} vs ${existingTaskRow.task_id}. Priorities: ${currentPriority} vs ${existingPriority}`);
 
-        // Scenarios for automatic or manual priority-based conflict resolution:
+        // Fetch the full existing task row so we can reschedule it properly.
+        const existingFullRes = await pool.query('SELECT * FROM tasks WHERE id = $1', [existingTaskRow.task_id]);
+        const existingFull = existingFullRes.rows[0];
+
         if (currentPriority > existingPriority) {
-           // 1) Auto-Resolution: New task is higher priority. 
-           // We displace the old task by removing its strict start/end times and making it flexible.
-           console.log("New task higher priority. Displacing old task.");
-           await pool.query("UPDATE tasks SET start_time = NULL, end_time = NULL WHERE id = $1", [existingTask.task_id]);
-           await pool.query("DELETE FROM scheduled_blocks WHERE task_id = $1", [existingTask.task_id]);
+          // 1) Auto-Resolution: New task wins — it keeps the requested slot.
+          //    The existing (lower-priority) task is bumped to start right after the new task ends.
+          console.log(`New task (id=${task.id}) wins. Bumping existing task (id=${existingFull.id}) to after ${endDt.toISOString()}.`);
+          await scheduleTaskAfter(existingFull, endDt);
+
         } else if (currentPriority < existingPriority) {
-           // 2) Auto-Resolution: New task is lower priority. 
-           // Prevent the new task from taking the spot, auto-convert the new one to flexible instead.
-           console.log("New task lower priority. Converting new task to flexible.");
-           await pool.query("UPDATE tasks SET start_time = NULL, end_time = NULL WHERE id = $1", [task.id]);
-           const err: any = new Error('lower_priority_conflict');
-           throw err;
+          // 2) Auto-Resolution: Existing task wins — it keeps its slot.
+          //    The new (lower-priority) task is placed right after the existing task ends.
+          console.log(`Existing task (id=${existingFull.id}) wins. Bumping new task (id=${task.id}) to after existing end.`);
+
+          // Find where the existing block ends so we can place the new one after it.
+          const existingBlockRes = await pool.query(
+            'SELECT end_datetime FROM scheduled_blocks WHERE task_id = $1 ORDER BY end_datetime DESC LIMIT 1',
+            [existingFull.id]
+          );
+          const existingEnd: Date = existingBlockRes.rows.length > 0
+            ? new Date(existingBlockRes.rows[0].end_datetime)
+            : endDt; // fallback
+
+          // Signal caller that we should NOT insert at the original time, but after existingEnd.
+          const err: any = new Error('lower_priority_reschedule');
+          err.rescheduleAfter = existingEnd;
+          throw err;
+
         } else {
-           // 3) Manual Resolution: Exact tie in priority.
-           // Throw an error block intercepted by the UI frontend to prompt the user for manual decision.
-           const err: any = new Error('equal_priority_conflict');
-           err.conflictData = { 
-               existingTaskId: existingTask.task_id,
-               existingTaskTitle: existingTask.title
-           };
-           throw err;
+          // 3) Manual Resolution needed: Equal priority — let the user decide.
+          const err: any = new Error('equal_priority_conflict');
+          err.conflictData = {
+            existingTaskId: existingFull.id,
+            existingTaskTitle: existingFull.title,
+          };
+          throw err;
         }
       }
 
       await pool.query(
-        `INSERT INTO scheduled_blocks 
+        `INSERT INTO scheduled_blocks
           (user_id, task_id, start_datetime, end_datetime, block_type, generated_by_ai)
          VALUES ($1, $2, $3, $4, $5, FALSE)`,
         [task.user_id, task.id, startDt.toISOString(), endDt.toISOString(), task.category || 'study']
@@ -126,8 +175,13 @@ async function syncToSchedule(task: any) {
 
     console.log(`Synced task ${task.id} to schedule. Created ${datesToSchedule.length} blocks checked.`);
   } catch (err: any) {
-    console.error(`Failed to sync task ${task.id} to schedule:`, err);
-    throw err;
+    if (err.message === 'lower_priority_reschedule' && err.rescheduleAfter) {
+      // New task is lower priority — insert it immediately after the winner ends.
+      await scheduleTaskAfter(task, err.rescheduleAfter);
+    } else {
+      console.error(`Failed to sync task ${task.id} to schedule:`, err);
+      throw err;
+    }
   }
 }
 
@@ -292,27 +346,19 @@ export async function createTask(req: Request, res: Response) {
       await syncToSchedule(task);
       res.status(201).json(task);
     } catch (err: any) {
-      // If sync failed (likely conflict), we should probably rollback the task creation?
-      // Or just warn? The user asked for "error".
-      if (err.message === 'lower_priority_conflict') {
-        // Automatically displaced, task remains flexible. Return success.
-        res.status(201).json(task);
-      } else if (err.message === 'equal_priority_conflict') {
-        // Equal priority! Do not delete task. Tell client there is a conflict to resolve.
-        res.status(409).json({ 
-            message: "Time overlap", 
-            conflict: true, 
-            newTaskId: task.id, 
-            existingTaskId: err.conflictData.existingTaskId,
-            existingTaskTitle: err.conflictData.existingTaskTitle
+      if (err.message === 'equal_priority_conflict') {
+        // Equal priority — do NOT delete the task. Tell the client to ask the user.
+        res.status(409).json({
+          message: "Time overlap",
+          conflict: true,
+          newTaskId: task.id,
+          existingTaskId: err.conflictData.existingTaskId,
+          existingTaskTitle: err.conflictData.existingTaskTitle,
         });
       } else {
-        await pool.query("DELETE FROM tasks WHERE id = $1", [task.id]);
-        if (err.message.includes('Time overlap')) {
-          res.status(409).json({ message: err.message });
-        } else {
-          res.status(500).json({ message: "Failed to schedule task due to error" });
-        }
+        // Any other sync error — roll back the task to keep DB clean.
+        await pool.query('DELETE FROM tasks WHERE id = $1', [task.id]);
+        res.status(500).json({ message: 'Failed to schedule task due to an error' });
       }
     }
   } catch (err) {
@@ -323,29 +369,44 @@ export async function createTask(req: Request, res: Response) {
 
 export async function resolveConflict(req: Request, res: Response) {
   const userId = (req as any).userId;
-  // winnerTaskId: The task chosen to keep its fixed time constraints.
-  // loserTaskId: The task that overlaps and will be pushed to the AI queue.
+  // winnerTaskId: The task chosen to go first (keeps its original time slot).
+  // loserTaskId:  The task that must yield — it will be scheduled right after the winner ends.
   const { winnerTaskId, loserTaskId } = req.body;
 
   try {
-     // Push loser forward (make flexible) by removing strict constraints.
-     // This allows the python AI Scheduler to pick it up later and place it 
-     // in the next available free time gap.
-     await pool.query("UPDATE tasks SET start_time = NULL, end_time = NULL WHERE id = $1 AND user_id = $2", [loserTaskId, userId]);
-     await pool.query("DELETE FROM scheduled_blocks WHERE task_id = $1 AND user_id = $2", [loserTaskId, userId]);
-     
-     // Fetch winner task to trigger syncToSchedule to lock it in place.
-     const winnerRes = await pool.query("SELECT * FROM tasks WHERE id = $1 AND user_id = $2", [winnerTaskId, userId]);
-     if (winnerRes.rows.length > 0) {
-        try {
-           await syncToSchedule(winnerRes.rows[0]);
-        } catch (e) { console.error("Error scheduling winner", e); }
-     }
-     
-     res.status(200).json({ message: "Conflict resolved" });
+    // 1. Ensure the winner's block exists (re-sync in case it was wiped during conflict detection).
+    const winnerRes = await pool.query('SELECT * FROM tasks WHERE id = $1 AND user_id = $2', [winnerTaskId, userId]);
+    if (winnerRes.rows.length === 0) {
+      return res.status(404).json({ message: 'Winner task not found' });
+    }
+    const winner = winnerRes.rows[0];
+
+    // Clear and re-insert the winner's block cleanly.
+    await pool.query('DELETE FROM scheduled_blocks WHERE task_id = $1 AND generated_by_ai = FALSE', [winnerTaskId]);
+    await syncToSchedule(winner);
+
+    // 2. Find where the winner's block ends so we can place the loser right after.
+    const winnerBlockRes = await pool.query(
+      'SELECT end_datetime FROM scheduled_blocks WHERE task_id = $1 ORDER BY end_datetime DESC LIMIT 1',
+      [winnerTaskId]
+    );
+    if (winnerBlockRes.rows.length === 0) {
+      return res.status(500).json({ message: 'Could not find winner block to determine end time' });
+    }
+    const winnerEnd = new Date(winnerBlockRes.rows[0].end_datetime);
+
+    // 3. Fetch the loser and schedule it immediately after the winner.
+    const loserRes = await pool.query('SELECT * FROM tasks WHERE id = $1 AND user_id = $2', [loserTaskId, userId]);
+    if (loserRes.rows.length === 0) {
+      return res.status(404).json({ message: 'Loser task not found' });
+    }
+    const loser = loserRes.rows[0];
+    await scheduleTaskAfter(loser, winnerEnd);
+
+    res.status(200).json({ message: 'Conflict resolved: tasks scheduled back-to-back' });
   } catch (err) {
-     console.error("resolveConflict error:", err);
-     res.status(500).json({ message: "Server error" });
+    console.error('resolveConflict error:', err);
+    res.status(500).json({ message: 'Server error' });
   }
 }
 
