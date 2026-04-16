@@ -1,7 +1,8 @@
-
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../services/task_service.dart';
+import '../theme/app_theme.dart';
 
 class AddTaskScreen extends StatefulWidget {
   const AddTaskScreen({super.key});
@@ -10,176 +11,125 @@ class AddTaskScreen extends StatefulWidget {
   State<AddTaskScreen> createState() => _AddTaskScreenState();
 }
 
-class _AddTaskScreenState extends State<AddTaskScreen> {
+class _AddTaskScreenState extends State<AddTaskScreen>
+    with SingleTickerProviderStateMixin {
   final _titleCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
-  final _goalCtrl = TextEditingController(); // Todays Goal
-  
-  String _category = "study";
-  DateTime? _selectedDate; // For one-time tasks
+  final _goalCtrl = TextEditingController();
+
+  String _category = 'study';
+  DateTime? _selectedDate;
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
   int _priority = 3;
-  
-  // Recurrence
+
   bool _isRecurring = false;
-  final List<String> _recurrenceDays = []; // ["Mon", "Tue"...]
+  final List<String> _recurrenceDays = [];
   DateTime? _rangeStart;
   DateTime? _rangeEnd;
 
-  // Checklist
   final List<TextEditingController> _checklistCtrls = [];
-
   bool _loading = false;
 
-  final _daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  
-  void _addChecklistItem() {
-    setState(() {
-      _checklistCtrls.add(TextEditingController());
-    });
-  }
+  final _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-  void _removeChecklistItem(int index) {
-      setState(() {
-          _checklistCtrls[index].dispose();
-          _checklistCtrls.removeAt(index);
-      });
-  }
+  final _categories = [
+    ('study', Icons.menu_book_rounded, AppColors.catStudy),
+    ('work', Icons.work_outline_rounded, AppColors.catWork),
+    ('health', Icons.fitness_center_rounded, AppColors.catHealth),
+    ('personal', Icons.person_outline_rounded, AppColors.catPersonal),
+    ('other', Icons.tag_rounded, AppColors.catDefault),
+  ];
 
-  /// A small styled row shown inside the conflict dialog for each competing task.
-  Widget _conflictOption(IconData icon, String title, Color color, String badge) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              title,
-              style: TextStyle(fontWeight: FontWeight.w600, color: color),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(badge, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
+  late AnimationController _animCtrl;
+  late Animation<double> _fadeAnim;
 
   @override
   void initState() {
     super.initState();
-    // Default to today for non-recurring tasks
     _selectedDate = DateTime.now();
+    _animCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 400));
+    _fadeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
+    _animCtrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _animCtrl.dispose();
+    _titleCtrl.dispose();
+    _descCtrl.dispose();
+    _goalCtrl.dispose();
+    for (final c in _checklistCtrls) {
+      c.dispose();
+    }
+    super.dispose();
   }
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
-    final date = await showDatePicker(
+    final d = await showDatePicker(
       context: context,
       initialDate: _selectedDate ?? now,
       firstDate: now,
       lastDate: DateTime(now.year + 1),
     );
-    if (date != null) setState(() => _selectedDate = date);
+    if (d != null) setState(() => _selectedDate = d);
   }
 
   Future<void> _pickRangeStart() async {
-     final now = DateTime.now();
-    final date = await showDatePicker(
+    final now = DateTime.now();
+    final d = await showDatePicker(
       context: context,
       initialDate: _rangeStart ?? now,
       firstDate: now,
       lastDate: DateTime(now.year + 1),
     );
-    if (date != null) setState(() => _rangeStart = date);
+    if (d != null) setState(() => _rangeStart = d);
   }
 
   Future<void> _pickRangeEnd() async {
-     final now = DateTime.now();
-    final date = await showDatePicker(
+    final now = DateTime.now();
+    final d = await showDatePicker(
       context: context,
       initialDate: _rangeEnd ?? _rangeStart ?? now,
       firstDate: _rangeStart ?? now,
       lastDate: DateTime(now.year + 2),
     );
-    if (date != null) setState(() => _rangeEnd = date);
+    if (d != null) setState(() => _rangeEnd = d);
   }
 
   Future<void> _pickTime(bool isStart) async {
-    final time = await showTimePicker(
+    final t = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.now(),
     );
-    if (time != null) {
-      setState(() {
-        if (isStart) {
-          _startTime = time;
-        } else {
-          _endTime = time;
-        }
-      });
-    }
+    if (t != null) setState(() => isStart ? _startTime = t : _endTime = t);
   }
 
   void _submit() async {
     if (_titleCtrl.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Title is required")),
-      );
+      _showSnack('Title is required');
       return;
     }
-    
-    // Validation
-    if (_isRecurring) {
-        if (_recurrenceDays.isEmpty) {
-             ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Select at least one day for recurrence")),
-            );
-            return;
-        }
-    } else {
-        if (_selectedDate == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Please select a date")),
-            );
-            return;
-        }
+    if (_isRecurring && _recurrenceDays.isEmpty) {
+      _showSnack('Select at least one day for recurrence');
+      return;
     }
 
     setState(() => _loading = true);
 
-    DateTime? specificDueDate;
-    // If not recurring, we can optionally use the date.
-    // If recurring, we rely on the days.
+    DateTime? dueDate;
     if (!_isRecurring && _selectedDate != null) {
-         if (_startTime != null) {
-             specificDueDate = DateTime(
-                 _selectedDate!.year, _selectedDate!.month, _selectedDate!.day,
-                 _startTime!.hour, _startTime!.minute
-             );
-         } else {
-             specificDueDate = _selectedDate; // All day or just date
-         }
+      dueDate = _startTime != null
+          ? DateTime(_selectedDate!.year, _selectedDate!.month,
+              _selectedDate!.day, _startTime!.hour, _startTime!.minute)
+          : _selectedDate;
     }
-    
-    final checklistItems = _checklistCtrls
-        .map((c) => c.text)
-        .where((i) => i.trim().isNotEmpty)
+
+    final checklist = _checklistCtrls
+        .map((c) => c.text.trim())
+        .where((s) => s.isNotEmpty)
         .toList();
 
     final result = await TaskService.createTask(
@@ -187,345 +137,833 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       description: _descCtrl.text,
       todaysGoal: _goalCtrl.text.isEmpty ? null : _goalCtrl.text,
       category: _category,
-      dueDate: specificDueDate,
+      dueDate: dueDate,
       priority: _priority,
-      // Pass recurrence info
       isRecurring: _isRecurring,
       recurrenceDays: _isRecurring ? _recurrenceDays : null,
-      startTime: _isRecurring ? _startTime : _startTime, // Use start time for both
-      endTime: _isRecurring ? _endTime : _endTime,
+      startTime: _startTime,
+      endTime: _endTime,
       dateRangeStart: _isRecurring ? _rangeStart : null,
       dateRangeEnd: _isRecurring ? _rangeEnd : null,
-      checklist: checklistItems,
+      checklist: checklist,
     );
 
     setState(() => _loading = false);
 
     if (result.success) {
       if (mounted) Navigator.pop(context, true);
-    } else {
-      if (result.conflictData != null && result.conflictData!['conflict'] == true && mounted) {
-        // Equal-priority conflict: both tasks will be kept and scheduled back-to-back.
-        // The user just picks which one goes first.
-        final newTaskId      = result.conflictData!['newTaskId'];
-        final existingTaskId = result.conflictData!['existingTaskId'];
-        final existingTitle  = result.conflictData!['existingTaskTitle'] ?? 'existing task';
-        final newTitle       = _titleCtrl.text;
-
-        await showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) => AlertDialog(
-            icon: const Icon(Icons.swap_horiz_rounded, size: 36, color: Colors.orange),
-            title: const Text("⚡ Schedule Conflict"),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Both tasks have equal priority and overlap. They will be scheduled back-to-back automatically.",
-                  style: TextStyle(fontSize: 14),
-                ),
-                const SizedBox(height: 16),
-                const Text("Which task goes FIRST?", style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                _conflictOption(Icons.push_pin, existingTitle, Colors.blueAccent, "Already scheduled"),
-                const SizedBox(height: 6),
-                _conflictOption(Icons.add_task, newTitle, Colors.teal, "Newly added"),
-              ],
-            ),
-            actions: [
-              // "Existing first" → existing is winner, new goes after
-              OutlinedButton(
-                onPressed: () async {
-                  Navigator.pop(ctx);
-                  setState(() => _loading = true);
-                  final ok = await TaskService.resolveConflict(existingTaskId, newTaskId);
-                  setState(() => _loading = false);
-                  if (mounted) {
-                    if (ok) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text("'$existingTitle' first, then '$newTitle'")),
-                      );
-                      Navigator.pop(context, true);
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Failed to resolve conflict")),
-                      );
-                    }
-                  }
-                },
-                child: Text(existingTitle, overflow: TextOverflow.ellipsis),
-              ),
-              // "New first" → new task is winner, existing goes after
-              FilledButton(
-                onPressed: () async {
-                  Navigator.pop(ctx);
-                  setState(() => _loading = true);
-                  final ok = await TaskService.resolveConflict(newTaskId, existingTaskId);
-                  setState(() => _loading = false);
-                  if (mounted) {
-                    if (ok) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text("'$newTitle' first, then '$existingTitle'")),
-                      );
-                      Navigator.pop(context, true);
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Failed to resolve conflict")),
-                      );
-                    }
-                  }
-                },
-                style: FilledButton.styleFrom(backgroundColor: Colors.teal),
-                child: Text(newTitle, overflow: TextOverflow.ellipsis),
-              ),
-            ],
-          ),
-        );
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(content: Text(result.errorMessage ?? "Failed to create task")),
-        );
-      }
+    } else if (result.conflictData != null &&
+        result.conflictData!['conflict'] == true &&
+        mounted) {
+      final newId = result.conflictData!['newTaskId'];
+      final existingId = result.conflictData!['existingTaskId'];
+      final existingTitle =
+          result.conflictData!['existingTaskTitle'] ?? 'Existing task';
+      final newTitle = _titleCtrl.text;
+      await _showConflictDialog(newId, existingId, newTitle, existingTitle);
+    } else if (mounted) {
+      _showSnack(result.errorMessage ?? 'Failed to create task');
     }
+  }
+
+  void _showSnack(String msg) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<void> _showConflictDialog(
+      int newId, int existingId, String newTitle, String existingTitle) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.warning.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.swap_horiz_rounded,
+                color: AppColors.warning, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Text('Schedule Conflict',
+              style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w600, fontSize: 16)),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Both tasks have equal priority and overlap. They\'ll be scheduled back-to-back.',
+              style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: isDark ? AppColors.darkMuted : AppColors.lightMuted),
+            ),
+            const SizedBox(height: 16),
+            Text('Which goes first?',
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w600, fontSize: 13)),
+            const SizedBox(height: 10),
+            _ConflictOption(
+                icon: Icons.push_pin_rounded,
+                title: existingTitle,
+                color: AppColors.info,
+                badge: 'Existing'),
+            const SizedBox(height: 8),
+            _ConflictOption(
+                icon: Icons.add_task_rounded,
+                title: newTitle,
+                color: AppColors.catHealth,
+                badge: 'New'),
+          ],
+        ),
+        actions: [
+          OutlinedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              setState(() => _loading = true);
+              final ok =
+                  await TaskService.resolveConflict(existingId, newId);
+              setState(() => _loading = false);
+              if (mounted) {
+                _showSnack(ok
+                    ? "'$existingTitle' first, then '$newTitle'"
+                    : 'Failed to resolve conflict');
+                if (ok) Navigator.pop(context, true);
+              }
+            },
+            child: Text(existingTitle,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              setState(() => _loading = true);
+              final ok =
+                  await TaskService.resolveConflict(newId, existingId);
+              setState(() => _loading = false);
+              if (mounted) {
+                _showSnack(ok
+                    ? "'$newTitle' first, then '$existingTitle'"
+                    : 'Failed to resolve conflict');
+                if (ok) Navigator.pop(context, true);
+              }
+            },
+            style: FilledButton.styleFrom(
+                backgroundColor: AppColors.catHealth),
+            child: Text(newTitle,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(fontWeight: FontWeight.w500)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
+      backgroundColor:
+          isDark ? AppColors.darkBg : AppColors.lightBg,
       appBar: AppBar(
-        title: const Text("Add New Task"),
-        backgroundColor: Colors.teal.shade700,
+        backgroundColor: Colors.transparent,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => Navigator.pop(context),
+          child: Icon(Icons.arrow_back,
+              color: isDark ? AppColors.darkText : AppColors.lightText),
+        ),
+        title: Text('New Task',
+            style: GoogleFonts.inter(
+                fontWeight: FontWeight.w700,
+                fontSize: 18,
+                color: isDark ? AppColors.darkText : AppColors.lightText)),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextField(
-              controller: _titleCtrl,
-              decoration: InputDecoration(
-                labelText: "Task Title",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                prefixIcon: const Icon(Icons.title),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _descCtrl,
-              decoration: InputDecoration(
-                labelText: "Description",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                prefixIcon: const Icon(Icons.description_outlined),
-              ),
-              maxLines: 3,
-            ),
-            const SizedBox(height: 16),
-             TextField(
-              controller: _goalCtrl,
-              decoration: InputDecoration(
-                labelText: "Today's Goal (Optional)",
-                helperText: "What do you want to achieve?",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                prefixIcon: const Icon(Icons.flag_outlined),
-              ),
-            ),
-            const SizedBox(height: 24),
-            
-            // Checklist Section
-            const Text("Checklist", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 8),
-            ..._checklistCtrls.asMap().entries.map((entry) {
-                int index = entry.key;
-                var controller = entry.value;
-                return Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: Row(
-                        children: [
-                            const Icon(Icons.check_box_outline_blank, color: Colors.grey),
-                            const SizedBox(width: 8),
-                            Expanded(child: TextField(
-                                controller: controller,
-                                decoration: const InputDecoration(
-                                    hintText: "Item...",
-                                    isDense: true,
-                                ),
-                            )),
-                            IconButton(
-                                icon: const Icon(Icons.close, color: Colors.red),
-                                onPressed: () => _removeChecklistItem(index),
-                            ),
-                        ],
-                    ),
-                );
-            }),
-            OutlinedButton.icon(
-                onPressed: _addChecklistItem,
-                icon: const Icon(Icons.add),
-                label: const Text("Add Item"),
-            ),
-            
-            const SizedBox(height: 24),
-            
-            // Category
-            DropdownButtonFormField<String>(
-              key: ValueKey(_category),
-              initialValue: _category,
-              decoration: InputDecoration(
-                labelText: "Category",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                prefixIcon: const Icon(Icons.category_outlined),
-              ),
-              items: ["study", "work", "health", "personal", "other"]
-                  .map((c) => DropdownMenuItem(value: c, child: Text(c.toUpperCase())))
-                  .toList(),
-              onChanged: (v) => setState(() => _category = v!),
-            ),
-            const SizedBox(height: 24),
-            
-            // Recurrence Switch
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.teal.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.teal.shade100),
-              ),
-              child: SwitchListTile(
-                  title: Text("Recurring Task?", style: TextStyle(color: Colors.teal.shade900, fontWeight: FontWeight.bold)),
-                  subtitle: const Text("Happens cleanly every week (e.g., Classes, Work)"),
-                  activeThumbColor: Colors.teal.shade700,
-                  value: _isRecurring,
-                  onChanged: (val) => setState(() => _isRecurring = val),
-              ),
-            ),
-            
-            const SizedBox(height: 24),
-
-            if (_isRecurring) ...[
-                const Text("Repeats On:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                const SizedBox(height: 8),
-                Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _daysOfWeek.map((day) {
-                        final isSelected = _recurrenceDays.contains(day);
-                        return FilterChip(
-                            label: Text(day),
-                            selected: isSelected,
-                            selectedColor: Colors.teal.shade100,
-                            checkmarkColor: Colors.teal.shade700,
-                            labelStyle: TextStyle(color: isSelected ? Colors.teal.shade900 : Colors.black),
-                            onSelected: (selected) {
-                                setState(() {
-                                    if (selected) {
-                                        _recurrenceDays.add(day);
-                                    } else {
-                                        _recurrenceDays.remove(day);
-                                    }
-                                });
-                            },
-                        );
-                    }).toList(),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                   children: [
-                       Expanded(
-                           child: OutlinedButton.icon(
-                               onPressed: _pickRangeStart,
-                               icon: const Icon(Icons.date_range),
-                               label: Text(_rangeStart == null ? "Start Date" : DateFormat('MM/dd').format(_rangeStart!)),
-                               style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
-                           ),
-                       ),
-                       const SizedBox(width: 8),
-                       Expanded(
-                           child: OutlinedButton.icon(
-                               onPressed: _pickRangeEnd,
-                               icon: const Icon(Icons.date_range),
-                               label: Text(_rangeEnd == null ? "End Date" : DateFormat('MM/dd').format(_rangeEnd!)),
-                               style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
-                           ),
-                       ),
-                   ], 
-                ),
-            ] else ...[
-                 ListTile(
-                  title: Text(_selectedDate == null
-                      ? "Pick Date"
-                      : DateFormat('EEE, MMM d, yyyy').format(_selectedDate!)),
-                  trailing: const Icon(Icons.calendar_today, color: Colors.teal),
-                  onTap: _pickDate,
-                  tileColor: Colors.grey.shade100,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade300)),
-                ),
-            ],
-            
-            const SizedBox(height: 16),
-            Row(
-                children: [
-                    Expanded(
-                        child: ListTile(
-                            title: Text(_startTime == null ? "Start Time" : _startTime!.format(context)),
-                            trailing: const Icon(Icons.access_time, color: Colors.teal),
-                            onTap: () => _pickTime(true),
-                            tileColor: Colors.grey.shade100,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade300)),
-                        ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                        child: ListTile(
-                            title: Text(_endTime == null ? "End Time" : _endTime!.format(context)),
-                            trailing: const Icon(Icons.access_time, color: Colors.teal),
-                            onTap: () => _pickTime(false),
-                            tileColor: Colors.grey.shade100,
-                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade300)),
-                        ),
-                    ),
-                ],
-            ),
-            
-            const SizedBox(height: 24),
-
-            // Priority
-            Row(
-              children: [
-                const Text("Priority: ", style: TextStyle(fontWeight: FontWeight.bold)),
-                Expanded(
-                  child: Slider(
-                    value: _priority.toDouble(),
-                    min: 1,
-                    max: 5,
-                    divisions: 4,
-                    label: _priority.toString(),
-                    activeColor: Colors.teal,
-                    onChanged: (v) => setState(() => _priority = v.round()),
+      body: FadeTransition(
+        opacity: _fadeAnim,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── Basic info ───────────────────────────────────────────
+              _Section(
+                label: 'DETAILS',
+                isDark: isDark,
+                child: Column(children: [
+                  _ThemedField(
+                    controller: _titleCtrl,
+                    label: 'Task title',
+                    icon: Icons.title_rounded,
+                    isDark: isDark,
                   ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 32),
-            SizedBox(
-              height: 50,
-              child: FilledButton(
-                onPressed: _loading ? null : _submit,
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.teal.shade700,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: _loading 
-                  ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) 
-                  : const Text("Create Task", style: TextStyle(fontSize: 16)),
+                  const SizedBox(height: 12),
+                  _ThemedField(
+                    controller: _descCtrl,
+                    label: 'Description',
+                    icon: Icons.notes_rounded,
+                    maxLines: 3,
+                    isDark: isDark,
+                  ),
+                  const SizedBox(height: 12),
+                  _ThemedField(
+                    controller: _goalCtrl,
+                    label: "Today's goal (optional)",
+                    icon: Icons.flag_rounded,
+                    isDark: isDark,
+                  ),
+                ]),
               ),
-            ),
-          ],
+
+              // ── Category ─────────────────────────────────────────────
+              _Section(
+                label: 'CATEGORY',
+                isDark: isDark,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _categories.map((cat) {
+                    final selected = _category == cat.$1;
+                    return GestureDetector(
+                      onTap: () => setState(() => _category = cat.$1),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? cat.$3.withValues(alpha: 0.18)
+                              : isDark
+                                  ? AppColors.darkSurface2
+                                  : AppColors.lightBg,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: selected
+                                ? cat.$3.withValues(alpha: 0.50)
+                                : isDark
+                                    ? AppColors.darkBorder
+                                    : AppColors.lightBorder,
+                            width: selected ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(cat.$2,
+                              size: 16,
+                              color: selected
+                                  ? cat.$3
+                                  : isDark
+                                      ? AppColors.darkMuted
+                                      : AppColors.lightMuted),
+                          const SizedBox(width: 6),
+                          Text(
+                            cat.$1[0].toUpperCase() + cat.$1.substring(1),
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: selected
+                                  ? cat.$3
+                                  : isDark
+                                      ? AppColors.darkText
+                                      : AppColors.lightText,
+                            ),
+                          ),
+                        ]),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+
+              // ── Schedule ─────────────────────────────────────────────
+              _Section(
+                label: 'SCHEDULE',
+                isDark: isDark,
+                child: Column(children: [
+                  // Recurring toggle
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    decoration: BoxDecoration(
+                      color: _isRecurring
+                          ? AppColors.accent.withValues(alpha: 0.08)
+                          : isDark
+                              ? AppColors.darkSurface2
+                              : AppColors.lightBg,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _isRecurring
+                            ? AppColors.accent.withValues(alpha: 0.35)
+                            : isDark
+                                ? AppColors.darkBorder
+                                : AppColors.lightBorder,
+                      ),
+                    ),
+                    child: SwitchListTile(
+                      dense: true,
+                      title: Text('Recurring task',
+                          style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              color: isDark
+                                  ? AppColors.darkText
+                                  : AppColors.lightText)),
+                      subtitle: Text('Repeats every week',
+                          style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: isDark
+                                  ? AppColors.darkMuted
+                                  : AppColors.lightMuted)),
+                      activeColor: AppColors.accent,
+                      value: _isRecurring,
+                      onChanged: (v) => setState(() => _isRecurring = v),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  if (_isRecurring) ...[
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('Repeats on',
+                          style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: isDark
+                                  ? AppColors.darkMuted
+                                  : AppColors.lightMuted,
+                              letterSpacing: 0.3)),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      children: _days.map((day) {
+                        final sel = _recurrenceDays.contains(day);
+                        return GestureDetector(
+                          onTap: () => setState(() => sel
+                              ? _recurrenceDays.remove(day)
+                              : _recurrenceDays.add(day)),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 160),
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: sel
+                                  ? AppColors.accent
+                                  : isDark
+                                      ? AppColors.darkSurface2
+                                      : AppColors.lightBg,
+                              border: Border.all(
+                                color: sel
+                                    ? AppColors.accent
+                                    : isDark
+                                        ? AppColors.darkBorder
+                                        : AppColors.lightBorder,
+                              ),
+                            ),
+                            child: Center(
+                              child: Text(day[0],
+                                  style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: sel
+                                          ? Colors.white
+                                          : isDark
+                                              ? AppColors.darkMuted
+                                              : AppColors.lightMuted)),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(children: [
+                      Expanded(
+                        child: _DateTile(
+                          icon: Icons.calendar_today_rounded,
+                          label: _rangeStart == null
+                              ? 'Start date'
+                              : DateFormat('MMM d').format(_rangeStart!),
+                          onTap: _pickRangeStart,
+                          isDark: isDark,
+                          active: _rangeStart != null,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _DateTile(
+                          icon: Icons.event_rounded,
+                          label: _rangeEnd == null
+                              ? 'End date'
+                              : DateFormat('MMM d').format(_rangeEnd!),
+                          onTap: _pickRangeEnd,
+                          isDark: isDark,
+                          active: _rangeEnd != null,
+                        ),
+                      ),
+                    ]),
+                  ] else ...[
+                    _DateTile(
+                      icon: Icons.calendar_today_rounded,
+                      label: _selectedDate == null
+                          ? 'Pick date'
+                          : DateFormat('EEE, MMM d, yyyy')
+                              .format(_selectedDate!),
+                      onTap: _pickDate,
+                      isDark: isDark,
+                      active: _selectedDate != null,
+                    ),
+                  ],
+
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    Expanded(
+                      child: _DateTile(
+                        icon: Icons.schedule_rounded,
+                        label: _startTime == null
+                            ? 'Start time'
+                            : _startTime!.format(context),
+                        onTap: () => _pickTime(true),
+                        isDark: isDark,
+                        active: _startTime != null,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _DateTile(
+                        icon: Icons.schedule_rounded,
+                        label: _endTime == null
+                            ? 'End time'
+                            : _endTime!.format(context),
+                        onTap: () => _pickTime(false),
+                        isDark: isDark,
+                        active: _endTime != null,
+                      ),
+                    ),
+                  ]),
+                ]),
+              ),
+
+              // ── Priority ─────────────────────────────────────────────
+              _Section(
+                label: 'PRIORITY',
+                isDark: isDark,
+                child: Row(
+                  children: List.generate(5, (i) {
+                    final level = i + 1;
+                    final sel = _priority == level;
+                    final colors = [
+                      AppColors.catHealth,
+                      AppColors.catStudy,
+                      AppColors.warning,
+                      AppColors.catRoutine,
+                      AppColors.error,
+                    ];
+                    final labels = ['Low', '', 'Mid', '', 'High'];
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _priority = level),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 160),
+                          margin: EdgeInsets.only(right: i < 4 ? 6 : 0),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
+                            color: sel
+                                ? colors[i].withValues(alpha: 0.18)
+                                : isDark
+                                    ? AppColors.darkSurface2
+                                    : AppColors.lightBg,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: sel
+                                  ? colors[i].withValues(alpha: 0.50)
+                                  : isDark
+                                      ? AppColors.darkBorder
+                                      : AppColors.lightBorder,
+                              width: sel ? 1.5 : 1,
+                            ),
+                          ),
+                          child: Column(children: [
+                            Text('$level',
+                                style: GoogleFonts.inter(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 16,
+                                    color: sel
+                                        ? colors[i]
+                                        : isDark
+                                            ? AppColors.darkMuted
+                                            : AppColors.lightMuted)),
+                            if (labels[i].isNotEmpty)
+                              Text(labels[i],
+                                  style: GoogleFonts.inter(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w500,
+                                      color: sel
+                                          ? colors[i]
+                                          : isDark
+                                              ? AppColors.darkSubtle
+                                              : AppColors.lightMuted)),
+                          ]),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+
+              // ── Checklist ────────────────────────────────────────────
+              _Section(
+                label: 'CHECKLIST',
+                isDark: isDark,
+                child: Column(
+                  children: [
+                    ..._checklistCtrls.asMap().entries.map((e) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(children: [
+                            Icon(Icons.radio_button_unchecked_rounded,
+                                size: 18,
+                                color: isDark
+                                    ? AppColors.darkMuted
+                                    : AppColors.lightMuted),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: TextField(
+                                controller: e.value,
+                                style: GoogleFonts.inter(
+                                    fontSize: 14,
+                                    color: isDark
+                                        ? AppColors.darkText
+                                        : AppColors.lightText),
+                                decoration: InputDecoration(
+                                  hintText: 'Checklist item…',
+                                  hintStyle: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      color: isDark
+                                          ? AppColors.darkSubtle
+                                          : AppColors.lightMuted),
+                                  isDense: true,
+                                  border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: UnderlineInputBorder(
+                                    borderSide: BorderSide(
+                                        color: AppColors.accent
+                                            .withValues(alpha: 0.50)),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      vertical: 6),
+                                ),
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () => setState(() {
+                                e.value.dispose();
+                                _checklistCtrls.removeAt(e.key);
+                              }),
+                              child: Padding(
+                                padding: const EdgeInsets.all(4),
+                                child: Icon(Icons.close_rounded,
+                                    size: 16,
+                                    color: isDark
+                                        ? AppColors.darkMuted
+                                        : AppColors.lightMuted),
+                              ),
+                            ),
+                          ]),
+                        )),
+                    GestureDetector(
+                      onTap: () => setState(() =>
+                          _checklistCtrls.add(TextEditingController())),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.accent.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                              color: AppColors.accent.withValues(alpha: 0.20)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.add_rounded,
+                                color: AppColors.accent, size: 16),
+                            const SizedBox(width: 6),
+                            Text('Add item',
+                                style: GoogleFonts.inter(
+                                    color: AppColors.accent,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              // ── Submit ───────────────────────────────────────────────
+              _GradientButton(
+                onPressed: _loading ? null : _submit,
+                loading: _loading,
+                label: 'Create Task',
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+// ── Sub-widgets ──────────────────────────────────────────────────────────────
+
+class _Section extends StatelessWidget {
+  final String label;
+  final bool isDark;
+  final Widget child;
+
+  const _Section(
+      {required this.label, required this.isDark, required this.child});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 2, bottom: 10),
+            child: Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+                color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                  color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+            ),
+            child: child,
+          ),
+        ]),
+      );
+}
+
+class _ThemedField extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final IconData icon;
+  final int maxLines;
+  final bool isDark;
+
+  const _ThemedField({
+    required this.controller,
+    required this.label,
+    required this.icon,
+    required this.isDark,
+    this.maxLines = 1,
+  });
+
+  @override
+  Widget build(BuildContext context) => TextField(
+        controller: controller,
+        maxLines: maxLines,
+        style: GoogleFonts.inter(
+            fontSize: 14,
+            color: isDark ? AppColors.darkText : AppColors.lightText),
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(icon, size: 18),
+        ),
+      );
+}
+
+class _DateTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool isDark;
+  final bool active;
+
+  const _DateTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    required this.isDark,
+    this.active = false,
+  });
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            color: active
+                ? AppColors.accent.withValues(alpha: 0.08)
+                : isDark
+                    ? AppColors.darkSurface2
+                    : AppColors.lightBg,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: active
+                  ? AppColors.accent.withValues(alpha: 0.35)
+                  : isDark
+                      ? AppColors.darkBorder
+                      : AppColors.lightBorder,
+            ),
+          ),
+          child: Row(children: [
+            Icon(icon,
+                size: 16,
+                color: active
+                    ? AppColors.accent
+                    : isDark
+                        ? AppColors.darkMuted
+                        : AppColors.lightMuted),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: active ? FontWeight.w500 : FontWeight.w400,
+                  color: active
+                      ? isDark
+                          ? AppColors.darkText
+                          : AppColors.lightText
+                      : isDark
+                          ? AppColors.darkMuted
+                          : AppColors.lightMuted,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ]),
+        ),
+      );
+}
+
+class _ConflictOption extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final Color color;
+  final String badge;
+
+  const _ConflictOption(
+      {required this.icon,
+      required this.title,
+      required this.color,
+      required this.badge});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: 0.30)),
+        ),
+        child: Row(children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(title,
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w500, color: color, fontSize: 13),
+                overflow: TextOverflow.ellipsis),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(badge,
+                style: GoogleFonts.inter(
+                    fontSize: 10,
+                    color: color,
+                    fontWeight: FontWeight.w700)),
+          ),
+        ]),
+      );
+}
+
+class _GradientButton extends StatefulWidget {
+  final VoidCallback? onPressed;
+  final bool loading;
+  final String label;
+
+  const _GradientButton({
+    required this.onPressed,
+    required this.loading,
+    required this.label,
+  });
+
+  @override
+  State<_GradientButton> createState() => _GradientButtonState();
+}
+
+class _GradientButtonState extends State<_GradientButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          height: 52,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            gradient: const LinearGradient(
+                colors: [AppColors.accent, Color(0xFF5B21B6)]),
+            boxShadow: widget.onPressed != null
+                ? [
+                    BoxShadow(
+                      color: AppColors.accent
+                          .withValues(alpha: _hovered ? 0.50 : 0.30),
+                      blurRadius: _hovered ? 20 : 12,
+                      offset: const Offset(0, 4),
+                    )
+                  ]
+                : [],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: widget.onPressed,
+              child: Center(
+                child: widget.loading
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2.5))
+                    : Text(widget.label,
+                        style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15)),
+              ),
+            ),
+          ),
+        ),
+      );
 }

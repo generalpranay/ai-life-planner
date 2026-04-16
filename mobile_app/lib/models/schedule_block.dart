@@ -11,6 +11,7 @@ class ScheduleBlock {
   final String? todaysGoal;
   final int? checklistTotal;
   final int? checklistDone;
+  final bool completed;
 
   ScheduleBlock({
     required this.id,
@@ -23,7 +24,22 @@ class ScheduleBlock {
     this.todaysGoal,
     this.checklistTotal,
     this.checklistDone,
+    this.completed = false,
   });
+
+  ScheduleBlock copyWith({bool? completed}) => ScheduleBlock(
+        id: id,
+        blockType: blockType,
+        startDatetime: startDatetime,
+        endDatetime: endDatetime,
+        taskId: taskId,
+        taskTitle: taskTitle,
+        taskDescription: taskDescription,
+        todaysGoal: todaysGoal,
+        checklistTotal: checklistTotal,
+        checklistDone: checklistDone,
+        completed: completed ?? this.completed,
+      );
 
   factory ScheduleBlock.fromJson(Map<String, dynamic> json) {
     return ScheduleBlock(
@@ -37,6 +53,7 @@ class ScheduleBlock {
       todaysGoal: json["todays_goal"],
       checklistTotal: json["checklist_total"] != null ? int.tryParse(json["checklist_total"].toString()) : 0,
       checklistDone: json["checklist_done"] != null ? int.tryParse(json["checklist_done"].toString()) : 0,
+      completed: json["completed"] == true,
     );
   }
 }

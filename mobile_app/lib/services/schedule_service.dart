@@ -39,4 +39,29 @@ class ScheduleService {
       token: token,
     );
   }
+
+  /// Mark a block complete/incomplete
+  static Future<bool> completeBlock(int blockId, {bool completed = true}) async {
+    final token = await AuthService.getToken();
+    final response = await ApiService.patch(
+      '${ApiConfig.baseUrl}/api/schedule/blocks/$blockId/complete',
+      token: token,
+      body: {'completed': completed},
+    );
+    return response.statusCode == 200;
+  }
+
+  /// Get user's streak
+  static Future<Map<String, int>> getStreak() async {
+    final token = await AuthService.getToken();
+    final response = await ApiService.get(
+      '${ApiConfig.baseUrl}/api/schedule/streak',
+      token: token,
+    );
+    final data = jsonDecode(response.body);
+    return {
+      'current': data['current_streak'] ?? 0,
+      'longest': data['longest_streak'] ?? 0,
+    };
+  }
 }

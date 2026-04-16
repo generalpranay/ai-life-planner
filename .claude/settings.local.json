@@ -13,7 +13,11 @@
       "Bash(cmd /c \"taskkill /F /IM node.exe /T\")",
       "Bash(powershell -Command \"Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force\")",
       "Bash(npx skills *)",
-      "Bash(flutter pub *)"
+      "Bash(flutter pub *)",
+      "Bash(powershell -Command \"Get-Process chrome -ErrorAction SilentlyContinue | Stop-Process -Force\")",
+      "Bash(grep *)",
+      "Bash(node -e ' *)",
+      "Bash(powershell -Command \"Get-Process node,chrome -ErrorAction SilentlyContinue | Stop-Process -Force\")"
     ]
   }
 }

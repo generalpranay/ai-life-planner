@@ -23,12 +23,13 @@ export async function getTodaySchedule(req: Request, res: Response) {
   try {
     const result = await pool.query(
       `
-      SELECT 
+      SELECT
         sb.id,
         sb.block_type,
         sb.start_datetime,
         sb.end_datetime,
         sb.task_id,
+        sb.completed,
         t.title as task_title,
         t.description as task_description,
         t.todays_goal,
@@ -64,12 +65,13 @@ export async function getWeekSchedule(req: Request, res: Response) {
   try {
     const result = await pool.query(
       `
-      SELECT 
+      SELECT
         sb.id,
         sb.block_type,
         sb.start_datetime,
         sb.end_datetime,
         sb.task_id,
+        sb.completed,
         t.title as task_title,
         t.description as task_description,
         t.todays_goal,
@@ -144,6 +146,70 @@ export async function generateWeekSchedule(req: Request, res: Response) {
 
   } catch (err) {
     console.error("generateWeekSchedule error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+
+// Mark a schedule block as completed and update streak
+export async function completeBlock(req: Request, res: Response) {
+  const userId = (req as any).userId;
+  const blockId = parseInt(req.params.id);
+  const { completed } = req.body as { completed: boolean };
+
+  try {
+    const result = await pool.query(
+      `UPDATE scheduled_blocks SET completed = $1 WHERE id = $2 AND user_id = $3 RETURNING *`,
+      [completed, blockId, userId]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ message: "Block not found" });
+
+    if (completed) {
+      const today = new Date().toISOString().split("T")[0];
+      await pool.query(
+        `INSERT INTO completion_streaks (user_id, current_streak, longest_streak, last_completed_date)
+         VALUES ($1, 1, 1, $2)
+         ON CONFLICT (user_id) DO UPDATE SET
+           current_streak = CASE
+             WHEN completion_streaks.last_completed_date = ($2::date - INTERVAL '1 day')::date THEN completion_streaks.current_streak + 1
+             WHEN completion_streaks.last_completed_date = $2::date THEN completion_streaks.current_streak
+             ELSE 1
+           END,
+           longest_streak = GREATEST(completion_streaks.longest_streak,
+             CASE
+               WHEN completion_streaks.last_completed_date = ($2::date - INTERVAL '1 day')::date THEN completion_streaks.current_streak + 1
+               ELSE 1
+             END),
+           last_completed_date = $2`,
+        [userId, today]
+      );
+    }
+
+    res.json({ success: true, completed });
+  } catch (err) {
+    console.error("completeBlock error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+
+// Get user's current streak
+export async function getStreak(req: Request, res: Response) {
+  const userId = (req as any).userId;
+  try {
+    const result = await pool.query(
+      `SELECT current_streak, longest_streak, last_completed_date FROM completion_streaks WHERE user_id = $1`,
+      [userId]
+    );
+    const row = result.rows[0];
+    if (!row) return res.json({ current_streak: 0, longest_streak: 0 });
+
+    // Reset streak if last completion was >1 day ago
+    const today = new Date().toISOString().split("T")[0];
+    const last = row.last_completed_date?.toISOString().split("T")[0];
+    const daysDiff = last ? Math.floor((new Date(today).getTime() - new Date(last).getTime()) / 86400000) : 999;
+    const current = daysDiff > 1 ? 0 : row.current_streak;
+
+    res.json({ current_streak: current, longest_streak: row.longest_streak });
+  } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
 }
