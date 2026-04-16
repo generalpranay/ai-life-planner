@@ -119,7 +119,7 @@ class _OptimizationScreenState extends State<OptimizationScreen>
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFEC4899).withOpacity(0.35),
+                        color: const Color(0xFFEC4899).withValues(alpha:0.35),
                         blurRadius: 24,
                         spreadRadius: 4,
                       ),
@@ -228,11 +228,11 @@ class _OptimizationScreenState extends State<OptimizationScreen>
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: const Color(0xFFEC4899).withOpacity(0.2),
+          color: const Color(0xFFEC4899).withValues(alpha:0.2),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+            color: Colors.black.withValues(alpha:isDark ? 0.3 : 0.05),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -297,11 +297,11 @@ class _OptimizationScreenState extends State<OptimizationScreen>
         color: cardBg,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFFEC4899).withOpacity(0.15),
+          color: const Color(0xFFEC4899).withValues(alpha:0.15),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+            color: Colors.black.withValues(alpha:isDark ? 0.2 : 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -367,7 +367,7 @@ class _OptimizationScreenState extends State<OptimizationScreen>
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: isDark
-                  ? Colors.white.withOpacity(0.04)
+                  ? Colors.white.withValues(alpha:0.04)
                   : Colors.grey.shade50,
               borderRadius: BorderRadius.circular(10),
             ),
@@ -402,9 +402,9 @@ class _OptimizationScreenState extends State<OptimizationScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: accent.withOpacity(0.1),
+        color: accent.withValues(alpha:0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: accent.withOpacity(0.25)),
+        border: Border.all(color: accent.withValues(alpha:0.25)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -430,7 +430,7 @@ class _OptimizationScreenState extends State<OptimizationScreen>
         color: cardBg,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF22C55E).withOpacity(0.2),
+          color: const Color(0xFF22C55E).withValues(alpha:0.2),
         ),
       ),
       child: Column(

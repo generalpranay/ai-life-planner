@@ -44,7 +44,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             _loading = false;
         });
     } catch(e) {
-        print("Error fetching schedule: $e");
+        debugPrint("Error fetching schedule: $e");
         setState(() => _loading = false);
     }
   }
@@ -55,7 +55,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           await ScheduleService.generateWeek();
           await _fetchSchedule();
       } catch (e) {
-          print("Error generating schedule: $e");
+          debugPrint("Error generating schedule: $e");
           setState(() => _loading = false);
       }
   }
@@ -64,8 +64,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Clear Schedule & Tasks"),
-        content: const Text("Are you sure you want to clear your schedule? \n\nThis will also DELETE all pending non-recurring tasks. This action cannot be undone."),
+        title: const Text("Clear Schedule"),
+        content: const Text("Are you sure you want to clear your schedule?\n\nAll scheduled blocks will be removed. Your tasks will be preserved."),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -96,7 +96,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         );
       }
     } catch (e) {
-      print("Error clearing schedule: $e");
+      debugPrint("Error clearing schedule: $e");
       setState(() => _loading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -246,12 +246,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             context,
             MaterialPageRoute(builder: (_) => const AddTaskScreen()),
           );
-            if (result == true) {
-             ScaffoldMessenger.of(context).showSnackBar(
-               const SnackBar(content: Text("Task added! Updating schedule...")),
-             );
-             _generateSchedule();
-           }
+          if (!context.mounted) return;
+          if (result == true) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Task added! Updating schedule...")),
+            );
+            _generateSchedule();
+          }
         },
         backgroundColor: Colors.cyan.shade200,
         icon: const Icon(Icons.add),
@@ -302,12 +303,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                color: !isSelected ? Theme.of(context).cardColor : null,
                                borderRadius: BorderRadius.circular(24),
                                border: Border.all(
-                                 color: isSelected ? Colors.transparent : (isToday ? Colors.blueAccent.withOpacity(0.5) : Colors.transparent),
+                                 color: isSelected ? Colors.transparent : (isToday ? Colors.blueAccent.withValues(alpha: 0.5) : Colors.transparent),
                                  width: 1,
                                ),
-                               boxShadow: isSelected 
-                                ? [BoxShadow(color: isDark ? Colors.deepPurple.withOpacity(0.3) : Colors.blue.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))] 
-                                : [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2))],
+                               boxShadow: isSelected
+                                ? [BoxShadow(color: isDark ? Colors.deepPurple.withValues(alpha: 0.3) : Colors.blue.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 4))]
+                                : [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
                            ),
                            child: Column(
                                mainAxisAlignment: MainAxisAlignment.center,

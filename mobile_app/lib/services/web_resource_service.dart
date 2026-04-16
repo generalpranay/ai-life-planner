@@ -26,7 +26,7 @@ class WebResourceService {
 
   static Future<bool> deleteResource(int id) async {
     final response = await ApiService.delete(
-      ApiConfig.baseUrl + "${ApiConfig.webResources}/$id",
+      "${ApiConfig.baseUrl}${ApiConfig.webResources}/$id",
       token: await AuthService.getToken(),
     );
     return response.statusCode == 204;

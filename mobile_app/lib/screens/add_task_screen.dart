@@ -52,9 +52,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -70,7 +70,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
+              color: color.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(badge, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
@@ -360,7 +360,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                         ],
                     ),
                 );
-            }).toList(),
+            }),
             OutlinedButton.icon(
                 onPressed: _addChecklistItem,
                 icon: const Icon(Icons.add),
@@ -371,7 +371,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
             
             // Category
             DropdownButtonFormField<String>(
-              value: _category,
+              key: ValueKey(_category),
+              initialValue: _category,
               decoration: InputDecoration(
                 labelText: "Category",
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -394,7 +395,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
               child: SwitchListTile(
                   title: Text("Recurring Task?", style: TextStyle(color: Colors.teal.shade900, fontWeight: FontWeight.bold)),
                   subtitle: const Text("Happens cleanly every week (e.g., Classes, Work)"),
-                  activeColor: Colors.teal.shade700,
+                  activeThumbColor: Colors.teal.shade700,
                   value: _isRecurring,
                   onChanged: (val) => setState(() => _isRecurring = val),
               ),

@@ -1,16 +1,19 @@
 import { Router } from "express";
 import { authRequired } from "../middleware/authMiddleware";
+import {
+  getEvents,
+  getEventById,
+  createEvent,
+  updateEvent,
+  deleteEvent,
+} from "../controllers/eventController";
 
 const router = Router();
 
-// GET all events (placeholder)
-router.get("/", authRequired, (_req, res) => {
-  res.json([]);
-});
-
-// POST create event (placeholder)
-router.post("/", authRequired, (_req, res) => {
-  res.status(201).json({ message: "Event created (placeholder)" });
-});
+router.get("/", authRequired, getEvents);
+router.get("/:id", authRequired, getEventById);
+router.post("/", authRequired, createEvent);
+router.patch("/:id", authRequired, updateEvent);
+router.delete("/:id", authRequired, deleteEvent);
 
 export default router;

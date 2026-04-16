@@ -13,15 +13,15 @@ import {
 
 const router = Router();
 
+// Specific named routes must come before parameterized routes
+router.post("/resolve-conflict", authRequired, resolveConflict);
+router.patch("/checklist/:itemId", authRequired, updateChecklistItem);
 
 router.get("/", authRequired, getTasks);
-router.get("/:id", authRequired, getTaskById);
 router.post("/", authRequired, createTask);
+router.get("/:id", authRequired, getTaskById);
 router.patch("/:id", authRequired, updateTask);
 router.delete("/:id", authRequired, deleteTask);
-router.post("/resolve-conflict", authRequired, resolveConflict);
-
 router.post("/:id/checklist", authRequired, addChecklistItem);
-router.patch("/checklist/:itemId", authRequired, updateChecklistItem);
 
 export default router;

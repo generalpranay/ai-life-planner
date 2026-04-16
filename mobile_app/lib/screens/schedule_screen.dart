@@ -38,8 +38,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Clear Schedule & Tasks"),
-        content: const Text("Are you sure you want to clear your schedule? \n\nThis will also DELETE all pending non-recurring tasks. This action cannot be undone."),
+        title: const Text("Clear Schedule"),
+        content: const Text("Are you sure you want to clear your schedule?\n\nAll scheduled blocks will be removed. Your tasks will be preserved."),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -65,7 +65,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       await ScheduleService.clearSchedule();
       await _loadSchedule();
     } catch (e) {
-      print("Error clearing schedule: $e");
+      debugPrint("Error clearing schedule: $e");
       setState(() => _loading = false);
     }
   }
@@ -73,26 +73,17 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   Map<String, List<ScheduleBlock>> get _groupedBlocks {
     final Map<String, List<ScheduleBlock>> groups = {};
     for (var block in _blocks) {
-      // Format date as YYYY-MM-DD
-      final date = block.startDatetime.substring(0, 10);
-      if (!groups.containsKey(date)) {
-        groups[date] = [];
-      }
-      groups[date]!.add(block);
+      // Format date as YYYY-MM-DD using the already-parsed DateTime
+      final dt = block.startDatetime;
+      final date =
+          '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+      groups.putIfAbsent(date, () => []).add(block);
     }
     return groups;
   }
 
-  String _formatTime(String isoString) {
-    if (isoString.isEmpty) return "";
-    try {
-      final dt = DateTime.parse(isoString).toLocal();
-      final hour = dt.hour.toString().padLeft(2, '0');
-      final minute = dt.minute.toString().padLeft(2, '0');
-      return "$hour:$minute";
-    } catch (e) {
-      return "";
-    }
+  String _formatTime(DateTime dt) {
+    return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
 
   @override

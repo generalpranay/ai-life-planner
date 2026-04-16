@@ -136,7 +136,7 @@ class _InsightsScreenState extends State<InsightsScreen>
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF7C3AED).withOpacity(0.4),
+                    color: const Color(0xFF7C3AED).withValues(alpha:0.4),
                     blurRadius: 24,
                     spreadRadius: 4,
                   ),
@@ -270,7 +270,7 @@ class _InsightsScreenState extends State<InsightsScreen>
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
+              color: Colors.black.withValues(alpha:isDark ? 0.3 : 0.06),
               blurRadius: 16,
               offset: const Offset(0, 4)),
         ],
@@ -286,7 +286,7 @@ class _InsightsScreenState extends State<InsightsScreen>
                 CircularProgressIndicator(
                   value: score / 100,
                   strokeWidth: 8,
-                  backgroundColor: color.withOpacity(0.15),
+                  backgroundColor: color.withValues(alpha:0.15),
                   valueColor: AlwaysStoppedAnimation<Color>(color),
                 ),
                 Text('$score',
@@ -345,7 +345,7 @@ class _InsightsScreenState extends State<InsightsScreen>
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha:0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -376,7 +376,7 @@ class _InsightsScreenState extends State<InsightsScreen>
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: accent.withOpacity(0.2)),
+        border: Border.all(color: accent.withValues(alpha:0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -399,10 +399,10 @@ class _InsightsScreenState extends State<InsightsScreen>
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: accent.withOpacity(0.1),
+                              color: accent.withValues(alpha:0.1),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                  color: accent.withOpacity(0.3)),
+                                  color: accent.withValues(alpha:0.3)),
                             ),
                             child: Text(e,
                                 style: TextStyle(

@@ -35,7 +35,7 @@ class ScheduleService {
     final token = await AuthService.getToken();
 
     await ApiService.delete(
-      ApiConfig.baseUrl + '/api/schedule/clear',
+      '${ApiConfig.baseUrl}${ApiConfig.scheduleClear}',
       token: token,
     );
   }

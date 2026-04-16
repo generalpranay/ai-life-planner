@@ -4,12 +4,24 @@ import { pool } from "../config/db";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export async function register(req: Request, res: Response) {
   try {
     const { email, password, role } = req.body;
 
+    if (!email || !EMAIL_REGEX.test(email)) {
+      return res.status(400).json({ message: "Valid email is required" });
+    }
+    if (!password || typeof password !== "string" || password.length < 8) {
+      return res.status(400).json({ message: "Password must be at least 8 characters" });
+    }
+    if (password.length > 128) {
+      return res.status(400).json({ message: "Password too long" });
+    }
+
     const existing = await pool.query("SELECT id FROM users WHERE email = $1", [
-      email,
+      email.toLowerCase().trim(),
     ]);
     if ((existing.rowCount ?? 0) > 0) {
       return res.status(400).json({ message: "Email already in use" });
@@ -23,7 +35,7 @@ export async function register(req: Request, res: Response) {
       VALUES ($1, $2, $3)
       RETURNING id, email, role, created_at
     `,
-      [email, hash, role || "student"]
+      [email.toLowerCase().trim(), hash, role || "student"]
     );
 
     const user = result.rows[0];
@@ -45,9 +57,13 @@ export async function login(req: Request, res: Response) {
   try {
     const { email, password } = req.body;
 
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
     const result = await pool.query(
       "SELECT id, email, password_hash, role, created_at FROM users WHERE email = $1",
-      [email]
+      [email.toLowerCase().trim()]
     );
 
     if (result.rowCount === 0) {

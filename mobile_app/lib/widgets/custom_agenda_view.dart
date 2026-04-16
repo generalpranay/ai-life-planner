@@ -56,7 +56,7 @@ class CustomAgendaView extends StatelessWidget {
                     right: 0,
                     child: Container(
                       height: 1,
-                      color: isDark ? Colors.grey.withOpacity(0.1) : Colors.grey.shade200,
+                      color: isDark ? Colors.grey.withValues(alpha:0.1) : Colors.grey.shade200,
                     ),
                   );
                 }),
@@ -128,7 +128,7 @@ class CustomAgendaView extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(16),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+                                    color: Colors.black.withValues(alpha:isDark ? 0.2 : 0.05),
                                     blurRadius: 8,
                                     offset: const Offset(0, 4),
                                   )
@@ -174,7 +174,7 @@ class CustomAgendaView extends StatelessWidget {
                                        "${DateFormat('h:mm a').format(block.startDatetime)} - ${DateFormat('h:mm a').format(block.endDatetime)}",
                                        style: TextStyle(
                                           fontSize: 11,
-                                          color: color.withOpacity(0.8),
+                                          color: color.withValues(alpha:0.8),
                                           fontWeight: FontWeight.bold,
                                        ),
                                      ),

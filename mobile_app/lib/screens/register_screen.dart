@@ -60,7 +60,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
               child: Center(
-                child: Icon(Icons.person_add, size: 80, color: Colors.white.withOpacity(0.9)),
+                child: Icon(Icons.person_add, size: 80, color: Colors.white.withValues(alpha:0.9)),
               ),
             ),
             const SizedBox(height: 40),

@@ -64,6 +64,7 @@ class _WebResourcesScreenState extends State<WebResourcesScreen> {
             onPressed: () async {
               if (nameCtrl.text.isEmpty || urlCtrl.text.isEmpty) return;
               await WebResourceService.createResource(nameCtrl.text, urlCtrl.text);
+              if (!context.mounted) return;
               Navigator.pop(context);
               _refresh();
             },

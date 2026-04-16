@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find *)",
+      "Bash(npx tsc *)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(flutter analyze *)",
+      "Bash(npm run *)",
+      "Bash(python run_scheduler.py)",
+      "Bash(flutter run *)",
+      "Bash(curl *)",
+      "Bash(taskkill /F /IM node.exe /T)",
+      "Bash(cmd /c \"taskkill /F /IM node.exe /T\")",
+      "Bash(powershell -Command \"Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force\")",
+      "Bash(npx skills *)",
+      "Bash(flutter pub *)"
+    ]
+  }
+}

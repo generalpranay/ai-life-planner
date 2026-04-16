@@ -1,5 +1,7 @@
 // src/controllers/scheduleController.ts
 import { Request, Response } from "express";
+import { spawn } from "child_process";
+import path from "path";
 import { pool } from "../config/db";
 
 /**
@@ -94,9 +96,6 @@ export async function generateWeekSchedule(req: Request, res: Response) {
   const startDate = req.body.startDate || new Date().toISOString();
 
   try {
-    const { spawn } = require("child_process");
-    const path = require("path");
-
     // Construct path to python script
     const scriptPath = path.resolve(
       __dirname,
@@ -149,26 +148,19 @@ export async function generateWeekSchedule(req: Request, res: Response) {
   }
 }
 
-// Clear all scheduled blocks for a user
+// Clear all scheduled blocks for a user (tasks are preserved)
 export async function clearSchedule(req: Request, res: Response) {
   const userId = (req as any).userId;
 
   try {
-    // Delete all scheduled blocks for this user
-    await pool.query(
+    const result = await pool.query(
       "DELETE FROM scheduled_blocks WHERE user_id = $1",
       [userId]
     );
 
-    // Also delete non-recurring tasks to prevent them from hitting the schedule again
-    const result = await pool.query(
-      "DELETE FROM tasks WHERE user_id = $1 AND is_recurring = FALSE",
-      [userId]
-    );
-
     res.json({
-      message: "Schedule and tasks cleared successfully",
-      deletedCount: result.rowCount || 0
+      message: "Schedule cleared successfully. Tasks have been preserved.",
+      deletedCount: result.rowCount || 0,
     });
   } catch (err) {
     console.error("clearSchedule error:", err);

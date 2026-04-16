@@ -1,3 +1,18 @@
+import 'dart:convert';
+
+// Parses recurrence_days from the backend which stores either a JSON array
+// string (e.g. '["Mon","Wed"]') or a comma-separated string (e.g. "Mon,Wed").
+List<String>? _parseRecurrenceDays(dynamic value) {
+  if (value == null) return null;
+  final s = value as String;
+  if (s.isEmpty) return null;
+  if (s.startsWith('[')) {
+    try {
+      return List<String>.from(jsonDecode(s) as List);
+    } catch (_) {}
+  }
+  return s.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+}
 
 class Task {
   final int id;
@@ -51,9 +66,7 @@ class Task {
       priority: json["priority"] ?? 3,
       todaysGoal: json["todays_goal"],
       isRecurring: json["is_recurring"] ?? false,
-      recurrenceDays: json["recurrence_days"] != null 
-          ? (json["recurrence_days"] as String).split(",") 
-          : null,
+      recurrenceDays: _parseRecurrenceDays(json["recurrence_days"]),
       startTime: json["start_time"],
       endTime: json["end_time"],
       dateRangeStart: json["date_range_start"] != null

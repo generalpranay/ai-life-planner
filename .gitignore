@@ -1,4 +1,59 @@
+# Editor
 .vscode/
 .idea/
-tmp/
+*.swp
+*.swo
+
+# OS
 .DS_Store
+Thumbs.db
+tmp/
+
+# Node
+node_modules/
+dist/
+build/
+
+# Environment secrets - NEVER commit .env files with real secrets
+backend/.env
+ai_scheduler/.env
+.env
+
+# Keep example files
+!.env.example
+!**/.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.Python
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Debug & test artifacts
+backend/debug_*.ts
+backend/src/debug_*.ts
+backend/debug_*.json
+backend/debug_*.txt
+backend/test_output.txt
+backend/test_populate.js
+backend/test_run_scheduler.ts
+ai_scheduler/error.log
+ai_scheduler/pytest_output.txt
+mobile_app/analysis_output.txt
+
+# Flutter build artifacts
+mobile_app/build/
+mobile_app/.flutter-plugins
+mobile_app/.flutter-plugins-dependencies
+mobile_app/.dart_tool/
+mobile_app/android/.gradle/
+mobile_app/ios/Pods/
+mobile_app/ios/.symlinks/
+mobile_app/ios/Flutter/Flutter.framework
+mobile_app/ios/Flutter/Flutter.podspec
