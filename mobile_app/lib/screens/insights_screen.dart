@@ -1,5 +1,6 @@
 // lib/screens/insights_screen.dart
 import 'package:flutter/material.dart';
+import 'dart:math' show max;
 import '../services/analysis_service.dart';
 import 'optimization_screen.dart';
 
@@ -238,6 +239,26 @@ class _InsightsScreenState extends State<InsightsScreen>
           const SizedBox(height: 16),
         ],
 
+        // Category success rates
+        if (a.dbStats.categoryStats.isNotEmpty) ...[
+          _sectionTitle('📊 Success Rate by Category'),
+          _categoryRatesCard(a.dbStats.categoryStats, cardBg, isDark),
+          const SizedBox(height: 16),
+        ],
+
+        // Time-of-day productivity
+        if (a.dbStats.totalBlocks > 0) ...[
+          _sectionTitle('⏰ Productivity by Time of Day'),
+          _timeBucketCard(a.dbStats.timeBucketStats, cardBg, isDark),
+          const SizedBox(height: 16),
+        ],
+
+        // Skip rate summary
+        if (a.dbStats.totalBlocks > 0) ...[
+          _skipSummaryCard(a.dbStats, cardBg, isDark),
+          const SizedBox(height: 16),
+        ],
+
         // Footer timestamp
         Center(
           child: Text(
@@ -416,6 +437,150 @@ class _InsightsScreenState extends State<InsightsScreen>
       ),
     );
   }
+
+  // ── Category success-rate bars ────────────────────────────────────────────────
+  Widget _categoryRatesCard(List<CategoryStat> stats, Color cardBg, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06), blurRadius: 12, offset: const Offset(0, 3))],
+      ),
+      child: Column(
+        children: stats.map((s) => _rateRow(
+          '${_categoryEmoji(s.category)} ${_capitalize(s.category)}',
+          s.successRate / 100,
+          '${s.successRate.toStringAsFixed(0)}%  (${s.completed}/${s.total})',
+          _categoryAccent(s.category),
+          isDark,
+        )).toList(),
+      ),
+    );
+  }
+
+  // ── Time-of-day bars ──────────────────────────────────────────────────────────
+  Widget _timeBucketCard(List<TimeBucketStat> stats, Color cardBg, bool isDark) {
+    const order = ['morning', 'afternoon', 'evening', 'night'];
+    const icons  = {'morning': '🌅', 'afternoon': '☀️', 'evening': '🌆', 'night': '🌙'};
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06), blurRadius: 12, offset: const Offset(0, 3))],
+      ),
+      child: Column(
+        children: order.map((period) {
+          final stat = stats.firstWhere(
+            (s) => s.period == period,
+            orElse: () => TimeBucketStat.empty(period),
+          );
+          final label = '${icons[period]} ${_capitalize(period)}';
+          final sub   = stat.total > 0 ? '${stat.successRate.toStringAsFixed(0)}%  (${stat.completed}/${stat.total})' : 'No data';
+          final color = stat.successRate >= 70
+              ? const Color(0xFF22C55E)
+              : stat.successRate >= 40
+                  ? const Color(0xFFF59E0B)
+                  : stat.total > 0
+                      ? const Color(0xFFEF4444)
+                      : Colors.grey;
+          return _rateRow(label, stat.total > 0 ? stat.successRate / 100 : 0, sub, color, isDark);
+        }).toList(),
+      ),
+    );
+  }
+
+  // ── Skip summary card ─────────────────────────────────────────────────────────
+  Widget _skipSummaryCard(DbStats s, Color cardBg, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.25)),
+      ),
+      child: Row(children: [
+        Container(
+          width: 44, height: 44,
+          decoration: BoxDecoration(
+            color: Colors.orange.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Icon(Icons.not_interested_rounded, color: Colors.orange, size: 22),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Skip Rate  ${s.skipRate}%',
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+            const SizedBox(height: 2),
+            Text('${s.skippedBlocks} skipped · ${s.completedBlocks} completed · ${s.totalBlocks} total blocks',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+          ]),
+        ),
+        // Mini progress arc
+        SizedBox(
+          width: 44, height: 44,
+          child: CircularProgressIndicator(
+            value: max(0, 1 - s.skipRate / 100),
+            strokeWidth: 5,
+            backgroundColor: Colors.orange.withValues(alpha: 0.15),
+            valueColor: AlwaysStoppedAnimation<Color>(
+              s.skipRate <= 20 ? const Color(0xFF22C55E) : Colors.orange,
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  // ── Shared progress row ───────────────────────────────────────────────────────
+  Widget _rateRow(String label, double value, String sub, Color color, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          Text(sub, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+        ]),
+        const SizedBox(height: 5),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: value.clamp(0.0, 1.0),
+            backgroundColor: color.withValues(alpha: 0.12),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+            minHeight: 7,
+          ),
+        ),
+      ]),
+    );
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────────
+  String _categoryEmoji(String cat) {
+    switch (cat.toLowerCase()) {
+      case 'study':    return '📚';
+      case 'work':     return '💼';
+      case 'health':   return '🏃';
+      case 'personal': return '🧘';
+      default:         return '📌';
+    }
+  }
+
+  Color _categoryAccent(String cat) {
+    switch (cat.toLowerCase()) {
+      case 'study':    return const Color(0xFF3B82F6);
+      case 'work':     return const Color(0xFF8B5CF6);
+      case 'health':   return const Color(0xFF22C55E);
+      case 'personal': return const Color(0xFFF59E0B);
+      default:         return const Color(0xFF6B7280);
+    }
+  }
+
+  String _capitalize(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 
   String _formatTs(String iso) {
     if (iso.isEmpty) return '';
