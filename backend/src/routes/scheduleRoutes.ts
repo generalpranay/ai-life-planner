@@ -1,7 +1,7 @@
 // src/routes/scheduleRoutes.ts
 import { Router } from "express";
 import { authRequired } from "../middleware/authMiddleware";
-import { generateWeekSchedule, getTodaySchedule, getWeekSchedule, clearSchedule, completeBlock, getStreak } from "../controllers/scheduleController";
+import { generateWeekSchedule, getTodaySchedule, getWeekSchedule, clearSchedule, completeBlock, skipBlock, getStreak } from "../controllers/scheduleController";
 
 const router = Router();
 
@@ -15,6 +15,7 @@ router.get("/today", authRequired, getTodaySchedule);
 router.get("/week", authRequired, getWeekSchedule);
 router.delete("/clear", authRequired, clearSchedule);
 router.patch("/blocks/:id/complete", authRequired, completeBlock);
+router.patch("/blocks/:id/skip", authRequired, skipBlock);
 router.get("/streak", authRequired, getStreak);
 
 export default router;

@@ -1,5 +1,8 @@
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
 import '../models/web_resource.dart';
 import '../services/web_resource_service.dart';
 import 'webview_screen.dart';
@@ -105,12 +108,16 @@ class _WebResourcesScreenState extends State<WebResourcesScreen> {
                         title: Text(res.name),
                         subtitle: Text(res.url),
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => WebViewScreen(title: res.name, url: res.url),
-                            ),
-                          );
+                          if (kIsWeb) {
+                            html.window.open(res.url, '_blank');
+                          } else {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => WebViewScreen(title: res.name, url: res.url),
+                              ),
+                            );
+                          }
                         },
                         trailing: IconButton(
                           icon: const Icon(Icons.delete_outline, color: Colors.red),

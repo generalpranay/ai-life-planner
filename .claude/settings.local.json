@@ -17,7 +17,11 @@
       "Bash(powershell -Command \"Get-Process chrome -ErrorAction SilentlyContinue | Stop-Process -Force\")",
       "Bash(grep *)",
       "Bash(node -e ' *)",
-      "Bash(powershell -Command \"Get-Process node,chrome -ErrorAction SilentlyContinue | Stop-Process -Force\")"
+      "Bash(powershell -Command \"Get-Process node,chrome -ErrorAction SilentlyContinue | Stop-Process -Force\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('scripts',{}\\), indent=2\\)\\)\")",
+      "Bash(echo \"Backend PID: $!\")",
+      "Bash(flutter devices *)",
+      "Bash(echo \"Flutter Chrome PID: $!\")"
     ]
   }
 }

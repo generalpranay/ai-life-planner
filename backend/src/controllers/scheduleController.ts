@@ -30,6 +30,8 @@ export async function getTodaySchedule(req: Request, res: Response) {
         sb.end_datetime,
         sb.task_id,
         sb.completed,
+        sb.completed_at,
+        sb.skipped_at,
         t.title as task_title,
         t.description as task_description,
         t.todays_goal,
@@ -72,6 +74,8 @@ export async function getWeekSchedule(req: Request, res: Response) {
         sb.end_datetime,
         sb.task_id,
         sb.completed,
+        sb.completed_at,
+        sb.skipped_at,
         t.title as task_title,
         t.description as task_description,
         t.todays_goal,
@@ -158,10 +162,34 @@ export async function completeBlock(req: Request, res: Response) {
 
   try {
     const result = await pool.query(
-      `UPDATE scheduled_blocks SET completed = $1 WHERE id = $2 AND user_id = $3 RETURNING *`,
+      `UPDATE scheduled_blocks
+       SET completed    = $1,
+           completed_at = CASE WHEN $1 = TRUE THEN NOW() ELSE NULL END,
+           skipped_at   = NULL
+       WHERE id = $2 AND user_id = $3
+       RETURNING task_id`,
       [completed, blockId, userId]
     );
     if (result.rowCount === 0) return res.status(404).json({ message: "Block not found" });
+
+    const taskId = result.rows[0].task_id;
+
+    // Keep task status in sync for non-recurring tasks
+    if (taskId) {
+      if (completed) {
+        await pool.query(
+          `UPDATE tasks SET status = 'completed', completed_at = NOW(), skipped_at = NULL
+           WHERE id = $1 AND user_id = $2 AND is_recurring = FALSE`,
+          [taskId, userId]
+        );
+      } else {
+        await pool.query(
+          `UPDATE tasks SET status = 'pending', completed_at = NULL
+           WHERE id = $1 AND user_id = $2 AND is_recurring = FALSE`,
+          [taskId, userId]
+        );
+      }
+    }
 
     if (completed) {
       const today = new Date().toISOString().split("T")[0];
@@ -187,6 +215,41 @@ export async function completeBlock(req: Request, res: Response) {
     res.json({ success: true, completed });
   } catch (err) {
     console.error("completeBlock error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+
+// Mark a schedule block as skipped
+export async function skipBlock(req: Request, res: Response) {
+  const userId = (req as any).userId;
+  const blockId = parseInt(req.params.id);
+
+  try {
+    const result = await pool.query(
+      `UPDATE scheduled_blocks
+       SET skipped_at  = NOW(),
+           completed   = FALSE,
+           completed_at = NULL
+       WHERE id = $1 AND user_id = $2
+       RETURNING task_id`,
+      [blockId, userId]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ message: "Block not found" });
+
+    const taskId = result.rows[0].task_id;
+
+    // Mark non-recurring tasks as skipped at the task level too
+    if (taskId) {
+      await pool.query(
+        `UPDATE tasks SET status = 'skipped', skipped_at = NOW(), completed_at = NULL
+         WHERE id = $1 AND user_id = $2 AND is_recurring = FALSE`,
+        [taskId, userId]
+      );
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("skipBlock error:", err);
     res.status(500).json({ message: "Server error" });
   }
 }

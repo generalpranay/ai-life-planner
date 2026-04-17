@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../services/task_service.dart';
+import '../services/ai_service.dart';
 import '../theme/app_theme.dart';
 
 class AddTaskScreen extends StatefulWidget {
@@ -31,6 +32,10 @@ class _AddTaskScreenState extends State<AddTaskScreen>
   final List<TextEditingController> _checklistCtrls = [];
   bool _loading = false;
 
+  // Natural language input
+  final _nlCtrl = TextEditingController();
+  bool _nlParsing = false;
+
   final _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   final _categories = [
@@ -43,6 +48,40 @@ class _AddTaskScreenState extends State<AddTaskScreen>
 
   late AnimationController _animCtrl;
   late Animation<double> _fadeAnim;
+
+  Future<void> _parseNaturalInput() async {
+    final text = _nlCtrl.text.trim();
+    if (text.isEmpty) return;
+    setState(() => _nlParsing = true);
+    final parsed = await AiService.parseTask(text);
+    setState(() => _nlParsing = false);
+    if (parsed == null) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not parse — try rephrasing')));
+      return;
+    }
+    setState(() {
+      if (parsed['title'] != null) _titleCtrl.text = parsed['title'];
+      if (parsed['description'] != null) _descCtrl.text = parsed['description'];
+      if (parsed['category'] != null) _category = parsed['category'];
+      if (parsed['priority'] != null) _priority = (parsed['priority'] as num).toInt();
+      if (parsed['is_recurring'] == true) _isRecurring = true;
+      if (parsed['recurrence_days'] != null) {
+        _recurrenceDays.clear();
+        _recurrenceDays.addAll(List<String>.from(parsed['recurrence_days']));
+      }
+      if (parsed['start_time'] != null) {
+        final p = (parsed['start_time'] as String).split(':');
+        _startTime = TimeOfDay(hour: int.parse(p[0]), minute: int.parse(p[1]));
+      }
+      if (parsed['end_time'] != null) {
+        final p = (parsed['end_time'] as String).split(':');
+        _endTime = TimeOfDay(hour: int.parse(p[0]), minute: int.parse(p[1]));
+      }
+      if (parsed['due_date'] != null) _selectedDate = DateTime.parse(parsed['due_date']);
+    });
+    _nlCtrl.clear();
+  }
 
   @override
   void initState() {
@@ -60,6 +99,7 @@ class _AddTaskScreenState extends State<AddTaskScreen>
     _titleCtrl.dispose();
     _descCtrl.dispose();
     _goalCtrl.dispose();
+    _nlCtrl.dispose();
     for (final c in _checklistCtrls) {
       c.dispose();
     }
@@ -295,6 +335,15 @@ class _AddTaskScreenState extends State<AddTaskScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // ── Natural language input ───────────────────────────────
+              _NlInputBar(
+                controller: _nlCtrl,
+                parsing: _nlParsing,
+                onParse: _parseNaturalInput,
+                isDark: isDark,
+              ),
+              const SizedBox(height: 8),
+
               // ── Basic info ───────────────────────────────────────────
               _Section(
                 label: 'DETAILS',
@@ -966,4 +1015,91 @@ class _GradientButtonState extends State<_GradientButton> {
           ),
         ),
       );
+}
+
+class _NlInputBar extends StatelessWidget {
+  final TextEditingController controller;
+  final bool parsing;
+  final VoidCallback onParse;
+  final bool isDark;
+
+  const _NlInputBar({
+    required this.controller,
+    required this.parsing,
+    required this.onParse,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        colors: [
+          AppColors.accent.withValues(alpha: isDark ? 0.12 : 0.07),
+          AppColors.cyan.withValues(alpha: isDark ? 0.06 : 0.04),
+        ],
+      ),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: AppColors.accent.withValues(alpha: 0.25)),
+    ),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        const Icon(Icons.auto_awesome_rounded, size: 14, color: AppColors.accent),
+        const SizedBox(width: 6),
+        Text('Describe your task in plain English',
+            style: GoogleFonts.inter(
+                fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.accent)),
+      ]),
+      const SizedBox(height: 10),
+      Row(children: [
+        Expanded(
+          child: TextField(
+            controller: controller,
+            style: GoogleFonts.inter(
+                fontSize: 13,
+                color: isDark ? AppColors.darkText : AppColors.lightText),
+            decoration: InputDecoration(
+              hintText: 'e.g. Study React every Tuesday 7–9pm',
+              hintStyle: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: isDark ? AppColors.darkSubtle : AppColors.lightMuted),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              filled: true,
+              fillColor: isDark ? AppColors.darkSurface2 : AppColors.lightSurface,
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none),
+              enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
+              ),
+            ),
+            onSubmitted: (_) => onParse(),
+          ),
+        ),
+        const SizedBox(width: 8),
+        GestureDetector(
+          onTap: parsing ? null : onParse,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 40, height: 40,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              gradient: const LinearGradient(
+                  colors: [AppColors.accent, Color(0xFF5B21B6)]),
+            ),
+            child: parsing
+                ? const Center(child: SizedBox(width: 16, height: 16,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)))
+                : const Icon(Icons.send_rounded, color: Colors.white, size: 16),
+          ),
+        ),
+      ]),
+    ]),
+  );
 }

@@ -89,3 +89,30 @@ export async function login(req: Request, res: Response) {
     res.status(500).json({ message: "Server error" });
   }
 }
+
+export async function refreshToken(req: Request, res: Response) {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.split(" ")[1];
+  if (!token) return res.status(401).json({ message: "No token" });
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string, {
+      ignoreExpiration: true,
+    }) as { userId: number; iat: number; exp: number };
+
+    // Only allow refresh if token expired less than 30 days ago
+    const now = Math.floor(Date.now() / 1000);
+    if (now - decoded.exp > 30 * 24 * 3600) {
+      return res.status(401).json({ message: "Token too old to refresh" });
+    }
+
+    const newToken = jwt.sign(
+      { userId: decoded.userId },
+      process.env.JWT_SECRET as string,
+      { expiresIn: "7d" }
+    );
+    res.json({ token: newToken });
+  } catch (err) {
+    res.status(401).json({ message: "Invalid token" });
+  }
+}

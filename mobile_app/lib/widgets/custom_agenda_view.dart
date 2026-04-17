@@ -22,15 +22,22 @@ class CustomAgendaView extends StatefulWidget {
 }
 
 class _CustomAgendaViewState extends State<CustomAgendaView> {
-  // Local completion state keyed by block id
+  // Local state overrides keyed by block id
   final Map<int, bool> _completedOverride = {};
+  final Map<int, bool> _skippedOverride = {};
 
   bool _isCompleted(ScheduleBlock b) =>
       _completedOverride.containsKey(b.id) ? _completedOverride[b.id]! : b.completed;
 
+  bool _isSkipped(ScheduleBlock b) =>
+      _skippedOverride.containsKey(b.id) ? _skippedOverride[b.id]! : b.skipped;
+
   Future<void> _toggleComplete(ScheduleBlock block) async {
     final newVal = !_isCompleted(block);
-    setState(() => _completedOverride[block.id] = newVal);
+    setState(() {
+      _completedOverride[block.id] = newVal;
+      if (newVal) _skippedOverride[block.id] = false; // completing clears skip
+    });
     final ok = await ScheduleService.completeBlock(block.id, completed: newVal);
     if (!ok && mounted) setState(() => _completedOverride[block.id] = !newVal);
   }
@@ -100,6 +107,12 @@ class _CustomAgendaViewState extends State<CustomAgendaView> {
                 final color = AppTheme.getCategoryColor(
                     block.blockType, Theme.of(context).brightness);
                 final done = _isCompleted(block);
+                final skipped = _isSkipped(block);
+                final stateColor = done
+                    ? AppColors.success
+                    : skipped
+                        ? Colors.orange
+                        : color;
 
                 return Stack(children: [
                   // Node
@@ -109,7 +122,7 @@ class _CustomAgendaViewState extends State<CustomAgendaView> {
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
                       decoration: BoxDecoration(
-                        color: done ? AppColors.success : color,
+                        color: stateColor,
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: Theme.of(context).scaffoldBackgroundColor,
@@ -125,22 +138,18 @@ class _CustomAgendaViewState extends State<CustomAgendaView> {
                     height: (duration * hourHeight) - 8,
                     child: AnimatedOpacity(
                       duration: const Duration(milliseconds: 300),
-                      opacity: done ? 0.55 : 1.0,
+                      opacity: (done || skipped) ? 0.55 : 1.0,
                       child: GestureDetector(
                         onTap: () => widget.onBlockTap(block),
                         child: Container(
                           padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
                           decoration: BoxDecoration(
-                            color: done
-                                ? (isDark
-                                    ? AppColors.darkSurface
-                                    : AppColors.lightSurface)
-                                : (isDark
-                                    ? AppColors.darkSurface
-                                    : AppColors.lightSurface),
+                            color: isDark
+                                ? AppColors.darkSurface
+                                : AppColors.lightSurface,
                             border: Border(
                               left: BorderSide(
-                                color: done ? AppColors.success : color,
+                                color: stateColor,
                                 width: 3,
                               ),
                             ),
@@ -168,9 +177,11 @@ class _CustomAgendaViewState extends State<CustomAgendaView> {
                                       Icon(
                                         done
                                             ? Icons.check_circle_rounded
-                                            : _categoryIcon(block.blockType),
+                                            : skipped
+                                                ? Icons.not_interested_rounded
+                                                : _categoryIcon(block.blockType),
                                         size: 14,
-                                        color: done ? AppColors.success : color,
+                                        color: stateColor,
                                       ),
                                       const SizedBox(width: 6),
                                       Expanded(
@@ -183,7 +194,7 @@ class _CustomAgendaViewState extends State<CustomAgendaView> {
                                             color: isDark
                                                 ? AppColors.darkText
                                                 : AppColors.lightText,
-                                            decoration: done
+                                            decoration: (done || skipped)
                                                 ? TextDecoration.lineThrough
                                                 : null,
                                             decorationColor: isDark
@@ -239,22 +250,28 @@ class _CustomAgendaViewState extends State<CustomAgendaView> {
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     color: done
-                                        ? AppColors.success
-                                            .withValues(alpha: 0.15)
-                                        : Colors.transparent,
+                                        ? AppColors.success.withValues(alpha: 0.15)
+                                        : skipped
+                                            ? Colors.orange.withValues(alpha: 0.15)
+                                            : Colors.transparent,
                                     border: Border.all(
                                       color: done
                                           ? AppColors.success
-                                          : isDark
-                                              ? AppColors.darkBorder2
-                                              : AppColors.lightBorder,
+                                          : skipped
+                                              ? Colors.orange
+                                              : isDark
+                                                  ? AppColors.darkBorder2
+                                                  : AppColors.lightBorder,
                                       width: 1.5,
                                     ),
                                   ),
                                   child: done
                                       ? const Icon(Icons.check_rounded,
                                           size: 14, color: AppColors.success)
-                                      : null,
+                                      : skipped
+                                          ? const Icon(Icons.not_interested_rounded,
+                                              size: 14, color: Colors.orange)
+                                          : null,
                                 ),
                               ),
                             ],

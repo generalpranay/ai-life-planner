@@ -139,7 +139,25 @@ class TaskService {
       token: token,
       body: {'done': done},
     );
+    return response.statusCode == 200;
+  }
 
+  static Future<bool> updateTask(int taskId, Map<String, dynamic> fields) async {
+    final token = await AuthService.getToken();
+    final response = await ApiService.patch(
+      '${ApiConfig.baseUrl}/api/tasks/$taskId',
+      token: token,
+      body: fields,
+    );
+    return response.statusCode == 200;
+  }
+
+  static Future<bool> deleteTask(int taskId) async {
+    final token = await AuthService.getToken();
+    final response = await ApiService.delete(
+      '${ApiConfig.baseUrl}/api/tasks/$taskId',
+      token: token,
+    );
     return response.statusCode == 200;
   }
 }

@@ -26,7 +26,7 @@ export interface TaskRow {
   due_datetime: Date | null;
   estimated_duration_minutes: number | null;
   priority: number;
-  status: "pending" | "in_progress" | "completed";
+  status: "pending" | "in_progress" | "completed" | "skipped";
   todays_goal: string | null;
   is_recurring: boolean;
   recurrence_days: string | null;
@@ -34,6 +34,9 @@ export interface TaskRow {
   end_time: string | null;
   date_range_start: Date | null;
   date_range_end: Date | null;
+  completed_at: Date | null;
+  skipped_at: Date | null;
+  status_note: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -54,6 +57,9 @@ export interface ScheduledBlockRow {
   end_datetime: Date;
   block_type: string;
   generated_by_ai: boolean;
+  completed: boolean;
+  completed_at: Date | null;
+  skipped_at: Date | null;
   created_at: Date;
 }
 

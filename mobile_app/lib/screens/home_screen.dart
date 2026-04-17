@@ -13,6 +13,8 @@ import 'web_resources_screen.dart';
 import 'insights_screen.dart';
 import '../theme/app_theme.dart';
 import '../services/notification_service.dart';
+import 'edit_task_screen.dart';
+import '../widgets/error_retry_view.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,6 +30,7 @@ class _HomeScreenState extends State<HomeScreen>
   DateTime? _selectedDay;
   List<ScheduleBlock> _blocks = [];
   bool _loading = true;
+  bool _error = false;
   int _streak = 0;
   OverlayEntry? _notifOverlay;
 
@@ -85,11 +88,11 @@ class _HomeScreenState extends State<HomeScreen>
     setState(() => _loading = true);
     try {
       final blocks = await ScheduleService.fetchSchedule();
-      setState(() { _blocks = blocks; _loading = false; });
+      setState(() { _blocks = blocks; _loading = false; _error = false; });
       _fetchStreak();
     } catch (e) {
       debugPrint('Error fetching schedule: $e');
-      setState(() => _loading = false);
+      setState(() { _loading = false; _error = true; });
     }
   }
 
@@ -256,7 +259,12 @@ class _HomeScreenState extends State<HomeScreen>
       drawer: _buildDrawer(isDark),
       body: _loading
           ? const _LoadingSpinner()
-          : TabBarView(
+          : _error
+              ? ErrorRetryView(
+                  message: 'Could not load schedule',
+                  onRetry: _fetchSchedule,
+                )
+              : TabBarView(
               controller: _tabConfig,
               children: [_buildDayView(isDark), _buildMonthView(isDark)],
             ),
@@ -514,10 +522,15 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         ),
         Expanded(
-          child: CustomAgendaView(
-            date: _selectedDay ?? DateTime.now(),
-            blocks: _blocks,
-            onBlockTap: _showBlockDetails,
+          child: RefreshIndicator(
+            color: AppColors.accent,
+            backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+            onRefresh: _fetchSchedule,
+            child: CustomAgendaView(
+              date: _selectedDay ?? DateTime.now(),
+              blocks: _blocks,
+              onBlockTap: _showBlockDetails,
+            ),
           ),
         ),
       ],
@@ -621,6 +634,40 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
               ),
               const SizedBox(height: 20),
+              // Block type badge + edit button
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  if (block.taskId != null)
+                    GestureDetector(
+                      onTap: () async {
+                        final t = task ?? await TaskService.getTaskById(block.taskId!);
+                        if (t == null || !context.mounted) return;
+                        Navigator.pop(context);
+                        final result = await Navigator.push(context,
+                            MaterialPageRoute(builder: (_) => EditTaskScreen(task: t)));
+                        if (result != null) _fetchSchedule();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.accent.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.accent.withValues(alpha: 0.25)),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          const Icon(Icons.edit_rounded, size: 13, color: AppColors.accent),
+                          const SizedBox(width: 5),
+                          Text('Edit', style: GoogleFonts.inter(
+                              fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.accent)),
+                        ]),
+                      ),
+                    )
+                  else
+                    const SizedBox(),
+                ],
+              ),
+              const SizedBox(height: 12),
               // Block type badge + title
               Row(children: [
                 Container(
@@ -739,6 +786,18 @@ class _HomeScreenState extends State<HomeScreen>
                   },
                 )),
               ],
+              // ── Action buttons ─────────────────────────────────────────────
+              const SizedBox(height: 20),
+              Divider(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+              const SizedBox(height: 12),
+              _BlockActionButtons(
+                block: block,
+                isDark: isDark,
+                onActionDone: () {
+                  Navigator.pop(ctx);
+                  if (mounted) _fetchSchedule();
+                },
+              ),
             ],
           ),
         ),
@@ -854,4 +913,101 @@ class _SheetLabel extends StatelessWidget {
       letterSpacing: 0.5,
     ),
   );
+}
+
+// ── Mark Done / Skip action buttons shown in the block detail sheet ──────────
+class _BlockActionButtons extends StatefulWidget {
+  final ScheduleBlock block;
+  final bool isDark;
+  final VoidCallback onActionDone;
+
+  const _BlockActionButtons({
+    required this.block,
+    required this.isDark,
+    required this.onActionDone,
+  });
+
+  @override
+  State<_BlockActionButtons> createState() => _BlockActionButtonsState();
+}
+
+class _BlockActionButtonsState extends State<_BlockActionButtons> {
+  bool _loading = false;
+
+  Future<void> _complete() async {
+    setState(() => _loading = true);
+    final newVal = !widget.block.completed;
+    final ok = await ScheduleService.completeBlock(widget.block.id, completed: newVal);
+    if (!mounted) return;
+    if (ok) {
+      widget.onActionDone();
+    } else {
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not update block')),
+      );
+    }
+  }
+
+  Future<void> _skip() async {
+    setState(() => _loading = true);
+    final ok = await ScheduleService.skipBlock(widget.block.id);
+    if (!mounted) return;
+    if (ok) {
+      widget.onActionDone();
+    } else {
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not skip block')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final done = widget.block.completed;
+    final skipped = widget.block.skipped;
+
+    // If already completed: offer "Unmark Done" only
+    // If already skipped: offer "Mark Done" (which also clears the skip)
+    // If neither: offer both "Mark Done" and "Skip"
+    return Row(
+      children: [
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: _loading ? null : _complete,
+            icon: Icon(done ? Icons.refresh_rounded : Icons.check_rounded, size: 16),
+            label: Text(done ? 'Unmark Done' : 'Mark Done'),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.success,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+        if (!done) ...[
+          const SizedBox(width: 12),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: _loading || skipped ? null : _skip,
+              icon: Icon(
+                skipped ? Icons.not_interested_rounded : Icons.skip_next_rounded,
+                size: 16,
+              ),
+              label: Text(skipped ? 'Skipped' : 'Skip'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: skipped ? Colors.grey : Colors.orange,
+                side: BorderSide(
+                  color: skipped ? Colors.grey.withValues(alpha: 0.4) : Colors.orange,
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 }

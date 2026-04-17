@@ -51,6 +51,17 @@ class ScheduleService {
     return response.statusCode == 200;
   }
 
+  /// Mark a block as skipped (clears any previous completion)
+  static Future<bool> skipBlock(int blockId) async {
+    final token = await AuthService.getToken();
+    final response = await ApiService.patch(
+      '${ApiConfig.baseUrl}/api/schedule/blocks/$blockId/skip',
+      token: token,
+      body: {},
+    );
+    return response.statusCode == 200;
+  }
+
   /// Get user's streak
   static Future<Map<String, int>> getStreak() async {
     final token = await AuthService.getToken();
