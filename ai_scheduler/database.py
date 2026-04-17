@@ -144,6 +144,156 @@ class Database:
             cursor.execute(query, (user_id, start, end))
             return cursor.rowcount
     
+    def get_behavior_stats(self, user_id: int, days: int = 30) -> dict:
+        """
+        Fetch all stats needed for behavioral analysis in one round-trip.
+        Returns block totals, per-category rates, and time-of-day bucket rates.
+        """
+        since = f"NOW() - INTERVAL '{days} days'"
+
+        with self.get_cursor() as cursor:
+            # ── 1. Block-level totals ────────────────────────────────────────
+            cursor.execute(f"""
+                SELECT
+                    COUNT(*)                                            AS total,
+                    COUNT(*) FILTER (WHERE completed = TRUE)            AS completed,
+                    COUNT(*) FILTER (WHERE skipped_at IS NOT NULL)      AS skipped
+                FROM scheduled_blocks
+                WHERE user_id = %s
+                  AND start_datetime >= {since}
+                  AND task_id IS NOT NULL
+            """, (user_id,))
+            totals_row = cursor.fetchone()
+
+            total     = int(totals_row['total']     or 0)
+            completed = int(totals_row['completed'] or 0)
+            skipped   = int(totals_row['skipped']   or 0)
+            skip_rate = round((skipped / total) * 100) if total > 0 else 0
+
+            # ── 2. Per-category success rates ────────────────────────────────
+            cursor.execute(f"""
+                SELECT
+                    COALESCE(category, 'other')                         AS category,
+                    COUNT(*)                                            AS total,
+                    COUNT(*) FILTER (WHERE status = 'completed')        AS completed,
+                    COUNT(*) FILTER (WHERE status = 'skipped')          AS skipped,
+                    ROUND(
+                        100.0 * COUNT(*) FILTER (WHERE status = 'completed')
+                        / NULLIF(COUNT(*), 0), 1
+                    )                                                   AS success_rate
+                FROM tasks
+                WHERE user_id = %s AND created_at >= {since}
+                GROUP BY category
+                ORDER BY success_rate DESC NULLS LAST
+            """, (user_id,))
+            category_rows = cursor.fetchall()
+
+            # ── 3. Time-of-day bucket rates ──────────────────────────────────
+            cursor.execute(f"""
+                SELECT
+                    CASE
+                        WHEN EXTRACT(HOUR FROM start_datetime) >= 5
+                         AND EXTRACT(HOUR FROM start_datetime) < 12 THEN 'morning'
+                        WHEN EXTRACT(HOUR FROM start_datetime) >= 12
+                         AND EXTRACT(HOUR FROM start_datetime) < 17 THEN 'afternoon'
+                        WHEN EXTRACT(HOUR FROM start_datetime) >= 17
+                         AND EXTRACT(HOUR FROM start_datetime) < 21 THEN 'evening'
+                        ELSE 'night'
+                    END                                                 AS period,
+                    COUNT(*)                                            AS total,
+                    COUNT(*) FILTER (WHERE completed = TRUE)            AS completed,
+                    COUNT(*) FILTER (WHERE skipped_at IS NOT NULL)      AS skipped,
+                    ROUND(
+                        100.0 * COUNT(*) FILTER (WHERE completed = TRUE)
+                        / NULLIF(COUNT(*), 0), 1
+                    )                                                   AS success_rate
+                FROM scheduled_blocks
+                WHERE user_id = %s
+                  AND start_datetime >= {since}
+                  AND task_id IS NOT NULL
+                GROUP BY period
+                ORDER BY success_rate DESC NULLS LAST
+            """, (user_id,))
+            bucket_rows = cursor.fetchall()
+
+            # ── 4. Recent task history (for context) ─────────────────────────
+            cursor.execute(f"""
+                SELECT
+                    t.title                                             AS task_name,
+                    t.category,
+                    sb.start_datetime                                   AS scheduled_time,
+                    t.status,
+                    t.completed_at,
+                    t.skipped_at
+                FROM tasks t
+                LEFT JOIN scheduled_blocks sb ON sb.task_id = t.id
+                WHERE t.user_id = %s
+                  AND (sb.start_datetime >= {since} OR sb.start_datetime IS NULL)
+                ORDER BY sb.start_datetime ASC NULLS LAST
+                LIMIT 100
+            """, (user_id,))
+            history_rows = cursor.fetchall()
+
+        def _row(r):
+            return {k: (float(v) if hasattr(v, '__float__') and not isinstance(v, int) else v)
+                    for k, v in dict(r).items()}
+
+        return {
+            "block_totals": {
+                "total": total,
+                "completed": completed,
+                "skipped": skipped,
+                "skip_rate": skip_rate,
+            },
+            "categories": [
+                {
+                    "category":     r["category"],
+                    "total":        int(r["total"]),
+                    "completed":    int(r["completed"]),
+                    "skipped":      int(r["skipped"]),
+                    "success_rate": float(r["success_rate"] or 0),
+                }
+                for r in category_rows
+            ],
+            "time_buckets": [
+                {
+                    "period":       r["period"],
+                    "total":        int(r["total"]),
+                    "completed":    int(r["completed"]),
+                    "skipped":      int(r["skipped"]),
+                    "success_rate": float(r["success_rate"] or 0),
+                }
+                for r in bucket_rows
+            ],
+            "history": [
+                {
+                    "task_name":      r["task_name"],
+                    "category":       r["category"] or "other",
+                    "scheduled_time": r["scheduled_time"].strftime("%H:%M") if r["scheduled_time"] else None,
+                    "status":         r["status"],
+                    "completed_at":   r["completed_at"].strftime("%H:%M") if r["completed_at"] else None,
+                    "skipped_at":     r["skipped_at"].strftime("%H:%M") if r["skipped_at"] else None,
+                }
+                for r in history_rows
+            ],
+        }
+
+    def get_user_profile(self, user_id: int) -> dict:
+        """Fetch user scheduling preferences."""
+        with self.get_cursor() as cursor:
+            cursor.execute(
+                "SELECT sleep_time, wake_time, preferred_work_hours FROM users WHERE id = %s",
+                (user_id,)
+            )
+            row = cursor.fetchone()
+        if not row:
+            return {"sleep_time": "23:30", "wake_time": "07:30", "preferred_work_hours": "unknown"}
+        return {
+            "sleep_time":           str(row["sleep_time"]  or "23:30"),
+            "wake_time":            str(row["wake_time"]   or "07:30"),
+            "preferred_work_hours": str(row["preferred_work_hours"] or "unknown"),
+        }
+
     def get_schedule_blocks(self, user_id: int, start: datetime, end: datetime) -> List[ScheduleBlock]:
         """Fetch schedule blocks for a user within a date range."""
         query = """

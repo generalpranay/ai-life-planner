@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from .models import Task, Event, ScheduleBlock, TimeSlot, TaskCategory, ScheduleRequest, ScheduleResult
 from .database import Database
 from .config import config
+from .behavior_engine import get_behavior_hints
 
 
 @dataclass
@@ -21,21 +22,43 @@ class OccupiedSlot:
     end: datetime
 
 
+# Maps task category to which time buckets it performs best in by default.
+# Overridden by actual behavioral data when available.
+_DEFAULT_CATEGORY_BUCKETS = {
+    "study":    ["morning", "afternoon"],
+    "work":     ["morning", "afternoon"],
+    "health":   ["morning", "evening"],
+    "personal": ["afternoon", "evening"],
+    "other":    ["morning", "afternoon", "evening"],
+    "exercise": ["morning", "evening"],
+    "break":    ["afternoon", "evening"],
+}
+
+_BUCKET_HOUR_START = {
+    "morning": 5, "afternoon": 12, "evening": 17, "night": 21,
+}
+_BUCKET_HOUR_END = {
+    "morning": 12, "afternoon": 17, "evening": 21, "night": 24,
+}
+
+
 class AIScheduler:
     """
     AI-assisted scheduler that generates weekly timetables.
-    
+
     Features:
     - Respects fixed events (classes, meetings, work hours)
     - Prioritizes tasks by due date and priority level
+    - Behavior-aware: places high-focus tasks in productive hours
     - Splits long tasks into manageable blocks
     - Avoids scheduling during non-working hours
     - Inserts breaks between extended work sessions
     """
-    
+
     def __init__(self, database: Optional[Database] = None):
         self.db = database or Database()
         self.config = config.scheduler
+        self._behavior_hints: Optional[dict] = None   # loaded lazily per user
     
     def generate_weekly_schedule(
         self,
@@ -56,7 +79,13 @@ class AIScheduler:
         """
         start = start_date or datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         end = start + timedelta(days=7)
-        
+
+        # 0. Load behavioral hints for this user (best-effort — skip on error)
+        try:
+            self._behavior_hints = get_behavior_hints(user_id, self.db)
+        except Exception:
+            self._behavior_hints = None
+
         # 1. Clear existing AI-generated blocks
         deleted = self.db.clear_generated_blocks(user_id, start, end)
         
@@ -143,24 +172,65 @@ class AIScheduler:
     
     def _prioritize_tasks(self, tasks: List[Task]) -> List[Task]:
         """
-        Sort tasks by scheduling priority.
-        
-        Priority factors (in order):
+        Sort tasks by scheduling priority, incorporating behavioral data.
+
+        Priority factors:
         1. Tasks with due dates (earlier first)
-        2. Higher priority level
-        3. Shorter estimated duration (easier to fit)
+        2. Higher explicit priority level
+        3. Behavioral success-rate for this category (higher success → schedule earlier
+           so the user builds momentum; lower success → schedule in productive window)
+        4. Shorter estimated duration (easier to fit)
         """
+        # Build category → success_rate lookup from behavioral hints
+        cat_scores: dict = {}
+        if self._behavior_hints:
+            cat_scores = self._behavior_hints.get("category_scores", {})
+
         def sort_key(task: Task) -> Tuple:
-            # Due date: earlier is better, None goes last
-            due_priority = task.due_datetime.timestamp() if task.due_datetime else float('inf')
-            # Priority: higher is better (negate for ascending sort)
+            due_priority = (
+                task.due_datetime.timestamp() if task.due_datetime else float('inf')
+            )
             priority = -task.priority
-            # Duration: shorter is better
+            # Tasks the user struggles with get scheduled earlier (they need prime-time slots)
+            # Tasks the user is good at can go later in the week.
+            cat_name = task.category.value if hasattr(task.category, 'value') else str(task.category)
+            success  = cat_scores.get(cat_name, 50.0)
+            # Invert: low success → small number → scheduled first
+            behavior_order = success / 100.0
             duration = task.estimated_duration_minutes or 60
-            
-            return (due_priority, priority, duration)
-        
+            return (due_priority, priority, behavior_order, duration)
+
         return sorted(tasks, key=sort_key)
+
+    def _score_slot_for_task(self, task: Task, slot_start: datetime) -> float:
+        """
+        Return a 0–100 fit score for placing a task in the time bucket
+        of slot_start.  Higher = better fit.
+        Used by the allocation loop to prefer good-fit slots.
+        """
+        if not self._behavior_hints:
+            return 50.0
+
+        hour = slot_start.hour
+        if hour < 12:
+            period = "morning"
+        elif hour < 17:
+            period = "afternoon"
+        elif hour < 21:
+            period = "evening"
+        else:
+            period = "night"
+
+        period_scores: dict = self._behavior_hints.get("period_scores", {})
+        period_score = period_scores.get(period, 50.0)
+
+        cat_name = task.category.value if hasattr(task.category, 'value') else str(task.category)
+        preferred = _DEFAULT_CATEGORY_BUCKETS.get(cat_name, ["morning", "afternoon"])
+
+        # Bonus if this period is in the category's preferred buckets
+        bucket_bonus = 10.0 if period in preferred else 0.0
+
+        return min(100.0, period_score + bucket_bonus)
     
     def _allocate_task(
         self,
