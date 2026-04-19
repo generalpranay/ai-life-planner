@@ -25,8 +25,10 @@ class ApiConfig {
   static String eventById(int id) => "/api/events/$id";
 
   // AI
-  static const String aiAnalyze = "/api/ai/analyze";
-  static const String aiOptimize = "/api/ai/optimize";
+  static const String aiAnalyze       = "/api/ai/analyze";
+  static const String aiOptimize      = "/api/ai/optimize";
+  static const String aiPredictRisks  = "/api/ai/predict-risks";
+  static const String aiRiskAction    = "/api/ai/risk-action";
 
   // Web Resources
   static const String webResources = "/api/web-resources";

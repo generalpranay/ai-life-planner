@@ -168,6 +168,71 @@ export async function optimizeSchedule(req: Request, res: Response) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// GET /api/ai/predict-risks — Proactive risk prediction (DB-aware).
+// Fetches today's blocks + 30-day skip history automatically; no body needed.
+// Returns { flags: [{blockId,taskId,title,type,suggestion}], totalMins, flagCount }
+// ──────────────────────────────────────────────────────────────────────────────
+export async function predictDayRisks(req: Request, res: Response) {
+  const userId = (req as any).userId;
+  try {
+    const result = await runPython("run_risk_predictor.py", [String(userId)]);
+    return res.json(result);
+  } catch (err: any) {
+    console.error("predictDayRisks error:", err?.message ?? err);
+    return res.status(500).json({ message: "Server error during risk prediction" });
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// POST /api/ai/risk-action — Apply a risk mitigation action.
+// Body: { blockId: number, action: "move_to_tomorrow" | "defer" }
+// ──────────────────────────────────────────────────────────────────────────────
+export async function applyRiskAction(req: Request, res: Response) {
+  const userId  = (req as any).userId;
+  const { blockId, action } = req.body as { blockId: number; action: string };
+
+  if (!blockId || !action) {
+    return res.status(400).json({ message: "blockId and action are required" });
+  }
+
+  try {
+    if (action === "move_to_tomorrow") {
+      const result = await pool.query(
+        `UPDATE scheduled_blocks
+            SET start_datetime = start_datetime + INTERVAL '1 day',
+                end_datetime   = end_datetime   + INTERVAL '1 day'
+          WHERE id = $1 AND user_id = $2
+          RETURNING id`,
+        [blockId, userId]
+      );
+      if (result.rowCount === 0) {
+        return res.status(404).json({ message: "Block not found" });
+      }
+      return res.json({ success: true, message: "Task moved to tomorrow" });
+    }
+
+    if (action === "defer") {
+      const result = await pool.query(
+        `UPDATE scheduled_blocks
+            SET skipped_at = NOW(), completed = FALSE
+          WHERE id = $1 AND user_id = $2
+          RETURNING id`,
+        [blockId, userId]
+      );
+      if (result.rowCount === 0) {
+        return res.status(404).json({ message: "Block not found" });
+      }
+      return res.json({ success: true, message: "Task deferred" });
+    }
+
+    return res.status(400).json({ message: `Unknown action: ${action}` });
+  } catch (err: any) {
+    console.error("applyRiskAction error:", err?.message ?? err);
+    return res.status(500).json({ message: "Server error applying risk action" });
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // POST /api/ai/detect-risks — Day risk detection (OVERLOAD / SKIP_RISK / CONFLICT)
 // Body: { tasks: [{ id, title, category, scheduledTime, estimatedMins, skipRate }] }
 // ──────────────────────────────────────────────────────────────────────────────

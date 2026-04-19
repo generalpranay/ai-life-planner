@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authRequired } from "../middleware/authMiddleware";
-import { analyzeUserBehavior, optimizeSchedule, parseNaturalTask, detectDayRisks } from "../controllers/aiController";
+import { analyzeUserBehavior, optimizeSchedule, parseNaturalTask, detectDayRisks, predictDayRisks, applyRiskAction } from "../controllers/aiController";
 
 const router = Router();
 
@@ -11,5 +11,9 @@ router.post("/analyze", authRequired, analyzeUserBehavior);
 router.post("/optimize", authRequired, optimizeSchedule);
 router.post("/parse-task", authRequired, parseNaturalTask);
 router.post("/detect-risks", authRequired, detectDayRisks);
+
+// Proactive risk prediction (uses DB history, no body needed)
+router.get("/predict-risks", authRequired, predictDayRisks);
+router.post("/risk-action",  authRequired, applyRiskAction);
 
 export default router;

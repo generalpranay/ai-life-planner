@@ -7,7 +7,10 @@ import '../models/task.dart';
 import '../services/schedule_service.dart';
 import '../services/task_service.dart';
 import '../services/auth_service.dart';
+import '../services/risk_service.dart';
+import '../models/risk_flag.dart';
 import '../widgets/custom_agenda_view.dart';
+import '../widgets/risk_banner.dart';
 import 'add_task_screen.dart';
 import 'web_resources_screen.dart';
 import 'insights_screen.dart';
@@ -34,6 +37,9 @@ class _HomeScreenState extends State<HomeScreen>
   int _streak = 0;
   OverlayEntry? _notifOverlay;
 
+  List<RiskFlag> _riskFlags = [];
+  bool _risksLoading = false;
+
   @override
   void initState() {
     super.initState();
@@ -41,6 +47,7 @@ class _HomeScreenState extends State<HomeScreen>
     _selectedDay = _focusedDay;
     _fetchSchedule();
     _fetchStreak();
+    _fetchRisks();
     NotificationService.start(
       getBlocks: () => _blocks,
       onNotify: _showBlockNotification,
@@ -75,6 +82,32 @@ class _HomeScreenState extends State<HomeScreen>
       ),
     );
     Overlay.of(context).insert(_notifOverlay!);
+  }
+
+  Future<void> _fetchRisks() async {
+    setState(() => _risksLoading = true);
+    try {
+      final flags = await RiskService.predictRisks();
+      if (mounted) setState(() { _riskFlags = flags; _risksLoading = false; });
+    } catch (_) {
+      if (mounted) setState(() => _risksLoading = false);
+    }
+  }
+
+  Future<void> _handleRiskAction(int blockId, String action) async {
+    final ok = await RiskService.applyAction(blockId, action);
+    if (!mounted) return;
+    if (ok) {
+      final label = action == 'move_to_tomorrow' ? 'Moved to tomorrow' : 'Task deferred';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(label)),
+      );
+      if (action == 'move_to_tomorrow') _fetchSchedule();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Action failed — please try again')),
+      );
+    }
   }
 
   Future<void> _fetchStreak() async {
@@ -436,6 +469,9 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  bool get _isTodaySelected =>
+      isSameDay(_selectedDay ?? DateTime.now(), DateTime.now());
+
   Widget _buildDayView(bool isDark) {
     return Column(
       children: [
@@ -521,11 +557,20 @@ class _HomeScreenState extends State<HomeScreen>
             },
           ),
         ),
+        if (_isTodaySelected)
+          RiskBannerSection(
+            flags: _riskFlags,
+            loading: _risksLoading,
+            onAction: _handleRiskAction,
+          ),
         Expanded(
           child: RefreshIndicator(
             color: AppColors.accent,
             backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-            onRefresh: _fetchSchedule,
+            onRefresh: () async {
+              await _fetchSchedule();
+              await _fetchRisks();
+            },
             child: CustomAgendaView(
               date: _selectedDay ?? DateTime.now(),
               blocks: _blocks,
