@@ -58,7 +58,9 @@ class _NativeWebView extends StatefulWidget {
 }
 
 class _NativeWebViewState extends State<_NativeWebView> {
+  // ignore: unused_field
   dynamic _controller;
+  // ignore: unused_field
   bool _loading = true;
 
   @override

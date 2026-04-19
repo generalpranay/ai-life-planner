@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authRequired } from "../middleware/authMiddleware";
-import { analyzeUserBehavior, optimizeSchedule, parseNaturalTask } from "../controllers/aiController";
+import { analyzeUserBehavior, optimizeSchedule, parseNaturalTask, detectDayRisks } from "../controllers/aiController";
 
 const router = Router();
 
@@ -10,5 +10,6 @@ router.post("/analyze", authRequired, analyzeUserBehavior);
 // POST /api/ai/optimize — intelligent schedule optimization via Gemini
 router.post("/optimize", authRequired, optimizeSchedule);
 router.post("/parse-task", authRequired, parseNaturalTask);
+router.post("/detect-risks", authRequired, detectDayRisks);
 
 export default router;

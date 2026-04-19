@@ -168,6 +168,25 @@ export async function optimizeSchedule(req: Request, res: Response) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// POST /api/ai/detect-risks — Day risk detection (OVERLOAD / SKIP_RISK / CONFLICT)
+// Body: { tasks: [{ id, title, category, scheduledTime, estimatedMins, skipRate }] }
+// ──────────────────────────────────────────────────────────────────────────────
+export async function detectDayRisks(req: Request, res: Response) {
+  const { tasks } = req.body as { tasks: unknown[] };
+  if (!Array.isArray(tasks) || tasks.length === 0) {
+    return res.status(400).json({ message: "tasks must be a non-empty array" });
+  }
+
+  try {
+    const result = await runPython("run_risk_detector.py", [JSON.stringify(tasks)]);
+    return res.json(result);
+  } catch (err: any) {
+    console.error("detectDayRisks error:", err?.message ?? err);
+    return res.status(500).json({ message: "Server error during risk detection" });
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // POST /api/ai/parse-task — NLP task parser (Python regex engine, no LLM)
 // ──────────────────────────────────────────────────────────────────────────────
 export async function parseNaturalTask(req: Request, res: Response) {
