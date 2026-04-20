@@ -6,6 +6,9 @@ import path from "path";
 // ──────────────────────────────────────────────────────────────────────────────
 // Helper: spawn a Python script and return its stdout as parsed JSON
 // ──────────────────────────────────────────────────────────────────────────────
+const PYTHON_TIMEOUT_MS = Number(process.env.PYTHON_TIMEOUT_MS) || 30_000;
+const PYTHON_MAX_OUTPUT = 5 * 1024 * 1024; // 5 MB
+
 function runPython(scriptName: string, args: string[]): Promise<any> {
   return new Promise((resolve, reject) => {
     const scriptPath = path.resolve(__dirname, "../../../ai_scheduler", scriptName);
@@ -17,18 +20,50 @@ function runPython(scriptName: string, args: string[]): Promise<any> {
 
     let stdout = "";
     let stderr = "";
-    proc.stdout.on("data", (d: Buffer) => (stdout += d.toString()));
-    proc.stderr.on("data", (d: Buffer) => (stderr += d.toString()));
+    let settled = false;
+    const done = (fn: () => void) => { if (!settled) { settled = true; fn(); } };
+
+    const timeout = setTimeout(() => {
+      done(() => {
+        try { proc.kill("SIGKILL"); } catch { /* ignore */ }
+        reject(new Error(`Python ${scriptName} timed out after ${PYTHON_TIMEOUT_MS}ms`));
+      });
+    }, PYTHON_TIMEOUT_MS);
+
+    proc.stdout.on("data", (d: Buffer) => {
+      stdout += d.toString();
+      if (stdout.length > PYTHON_MAX_OUTPUT) {
+        done(() => {
+          clearTimeout(timeout);
+          try { proc.kill("SIGKILL"); } catch { /* ignore */ }
+          reject(new Error(`Python ${scriptName} produced too much output`));
+        });
+      }
+    });
+    proc.stderr.on("data", (d: Buffer) => {
+      stderr += d.toString();
+      if (stderr.length > PYTHON_MAX_OUTPUT) stderr = stderr.slice(-PYTHON_MAX_OUTPUT);
+    });
+
+    proc.on("error", (err) => {
+      done(() => {
+        clearTimeout(timeout);
+        reject(new Error(`Failed to spawn python for ${scriptName}: ${err.message}`));
+      });
+    });
 
     proc.on("close", (code) => {
-      if (code !== 0) {
-        return reject(new Error(`Python ${scriptName} exited ${code}: ${stderr}`));
-      }
-      try {
-        resolve(JSON.parse(stdout.trim()));
-      } catch {
-        reject(new Error(`Invalid JSON from ${scriptName}: ${stdout.slice(0, 200)}`));
-      }
+      done(() => {
+        clearTimeout(timeout);
+        if (code !== 0) {
+          return reject(new Error(`Python ${scriptName} exited ${code}: ${stderr.slice(0, 500)}`));
+        }
+        try {
+          resolve(JSON.parse(stdout.trim()));
+        } catch {
+          reject(new Error(`Invalid JSON from ${scriptName}: ${stdout.slice(0, 200)}`));
+        }
+      });
     });
   });
 }

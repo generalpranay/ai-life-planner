@@ -121,6 +121,16 @@ export async function generateWeekSchedule(req: Request, res: Response) {
 
     let stdoutData = "";
     let stderrData = "";
+    let responded = false;
+    const respond = (fn: () => void) => { if (!responded) { responded = true; fn(); } };
+
+    const SCHEDULER_TIMEOUT_MS = Number(process.env.SCHEDULER_TIMEOUT_MS) || 60_000;
+    const timeout = setTimeout(() => {
+      respond(() => {
+        try { pythonProcess.kill("SIGKILL"); } catch { /* ignore */ }
+        res.status(504).json({ message: "AI Scheduler timed out" });
+      });
+    }, SCHEDULER_TIMEOUT_MS);
 
     pythonProcess.stdout.on("data", (data: any) => {
       stdoutData += data.toString();
@@ -130,22 +140,32 @@ export async function generateWeekSchedule(req: Request, res: Response) {
       stderrData += data.toString();
     });
 
-    pythonProcess.on("close", (code: number) => {
-      if (code !== 0) {
-        console.error("AI Scheduler failed:", stderrData);
-        return res.status(500).json({
-          message: "AI Scheduler failed to generate schedule",
-          details: stderrData
-        });
-      }
+    pythonProcess.on("error", (err: Error) => {
+      clearTimeout(timeout);
+      respond(() => {
+        console.error("AI Scheduler spawn failed:", err);
+        res.status(500).json({ message: "Failed to launch AI Scheduler" });
+      });
+    });
 
-      try {
-        const result = JSON.parse(stdoutData);
-        res.json(result);
-      } catch (e) {
-        console.error("Failed to parse AI output:", stdoutData);
-        res.status(500).json({ message: "Invalid output from AI Scheduler" });
-      }
+    pythonProcess.on("close", (code: number) => {
+      clearTimeout(timeout);
+      respond(() => {
+        if (code !== 0) {
+          console.error("AI Scheduler failed:", stderrData);
+          return res.status(500).json({
+            message: "AI Scheduler failed to generate schedule",
+            details: stderrData.slice(0, 500)
+          });
+        }
+        try {
+          const result = JSON.parse(stdoutData);
+          res.json(result);
+        } catch (e) {
+          console.error("Failed to parse AI output:", stdoutData.slice(0, 200));
+          res.status(500).json({ message: "Invalid output from AI Scheduler" });
+        }
+      });
     });
 
   } catch (err) {

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { jwtSecret } from "../config/env";
 
 interface JwtPayload {
   userId: number;
@@ -19,13 +20,9 @@ export function authRequired(
   const token = header.substring(7);
 
   try {
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET as string
-    ) as JwtPayload;
-
+    const decoded = jwt.verify(token, jwtSecret()) as JwtPayload;
     (req as any).userId = decoded.userId;
-    next(); 
+    next();
   } catch {
     return res.status(401).json({ message: "Invalid token" });
   }

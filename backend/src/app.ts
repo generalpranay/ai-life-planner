@@ -13,10 +13,18 @@ dotenv.config();
 
 const app = express();
 
+const allowedOrigins = (process.env.CORS_ORIGINS ?? "http://localhost:3000,http://localhost:5173")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
 app.use((req, res, next) => {
-  const origin = req.headers.origin || "*";
-  res.setHeader("Access-Control-Allow-Origin", origin);
-  res.setHeader("Access-Control-Allow-Credentials", "true");
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+  }
   res.setHeader("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
   if (req.method === "OPTIONS") {
@@ -25,7 +33,7 @@ app.use((req, res, next) => {
   }
   next();
 });
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
 
 app.get("/", (_req: Request, res: Response) => {
   res.json({ message: "AI Life Planner API is running" });

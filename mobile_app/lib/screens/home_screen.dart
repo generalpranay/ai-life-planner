@@ -121,10 +121,12 @@ class _HomeScreenState extends State<HomeScreen>
     setState(() => _loading = true);
     try {
       final blocks = await ScheduleService.fetchSchedule();
+      if (!mounted) return;
       setState(() { _blocks = blocks; _loading = false; _error = false; });
       _fetchStreak();
     } catch (e) {
       debugPrint('Error fetching schedule: $e');
+      if (!mounted) return;
       setState(() { _loading = false; _error = true; });
     }
   }
@@ -136,6 +138,7 @@ class _HomeScreenState extends State<HomeScreen>
       await _fetchSchedule();
     } catch (e) {
       debugPrint('Error generating schedule: $e');
+      if (!mounted) return;
       setState(() => _loading = false);
     }
   }
@@ -173,6 +176,7 @@ class _HomeScreenState extends State<HomeScreen>
         );
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() => _loading = false);
     }
   }

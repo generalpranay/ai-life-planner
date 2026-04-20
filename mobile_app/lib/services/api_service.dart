@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/api_config.dart';
 
 class ApiService {
   static Future<http.Response> get(String url, {String? token}) async {
@@ -57,11 +58,13 @@ class ApiService {
   static Future<String?> _tryRefresh(String oldToken) async {
     try {
       final res = await http.post(
-        Uri.parse('http://localhost:4000/api/auth/refresh'),
+        Uri.parse('${ApiConfig.baseUrl}/api/auth/refresh'),
         headers: _headers(oldToken),
       );
       if (res.statusCode == 200) {
-        final newToken = jsonDecode(res.body)['token'] as String;
+        final decoded = jsonDecode(res.body);
+        if (decoded is! Map || decoded['token'] is! String) return null;
+        final newToken = decoded['token'] as String;
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('token', newToken);
         return newToken;

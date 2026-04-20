@@ -25,9 +25,16 @@ class ScheduleService {
       token: token,
     );
 
-    final data = jsonDecode(response.body) as List;
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load schedule: ${response.statusCode}');
+    }
 
-    return data.map((e) => ScheduleBlock.fromJson(e)).toList();
+    final decoded = jsonDecode(response.body);
+    if (decoded is! List) return [];
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(ScheduleBlock.fromJson)
+        .toList();
   }
 
   /// Clear all scheduled blocks
@@ -69,10 +76,18 @@ class ScheduleService {
       '${ApiConfig.baseUrl}/api/schedule/streak',
       token: token,
     );
-    final data = jsonDecode(response.body);
-    return {
-      'current': data['current_streak'] ?? 0,
-      'longest': data['longest_streak'] ?? 0,
-    };
+    if (response.statusCode != 200) {
+      return {'current': 0, 'longest': 0};
+    }
+    try {
+      final data = jsonDecode(response.body);
+      if (data is! Map) return {'current': 0, 'longest': 0};
+      return {
+        'current': (data['current_streak'] as num?)?.toInt() ?? 0,
+        'longest': (data['longest_streak'] as num?)?.toInt() ?? 0,
+      };
+    } catch (_) {
+      return {'current': 0, 'longest': 0};
+    }
   }
 }

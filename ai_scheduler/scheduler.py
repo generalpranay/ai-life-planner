@@ -95,23 +95,25 @@ class AIScheduler:
         
         # 3. Fetch pending tasks
         all_tasks = self.db.get_pending_tasks(user_id)
-        
+
         # 3a. Handle Recurring Tasks & Fixed Time Tasks first
         recurring_tasks = [t for t in all_tasks if t.is_recurring]
         fixed_time_tasks = [t for t in all_tasks if not t.is_recurring and t.start_time and t.end_time]
         flexible_tasks = [t for t in all_tasks if not t.is_recurring and (not t.start_time or not t.end_time)]
-        
+
+        created_blocks: List[ScheduleBlock] = []
+
         # Add recurring tasks to occupied slots
         for rt in recurring_tasks:
             occupied_slots.extend(self._get_slots_for_recurring_task(rt, start, end))
-            
+
         # Add fixed time tasks to occupied slots AND create blocks for them
         for ft in fixed_time_tasks:
             slots = self._get_slots_for_fixed_task(ft, start, end)
             occupied_slots.extend(slots)
-             # We also need to actually create the blocks for these now so they appear in schedule
+            # We also need to actually create the blocks for these now so they appear in schedule
             for slot in slots:
-                 block = ScheduleBlock(
+                block = ScheduleBlock(
                     user_id=user_id,
                     task_id=ft.id,
                     start_datetime=slot.start,
@@ -122,26 +124,25 @@ class AIScheduler:
                     task_description=ft.description,
                     todays_goal=ft.todays_goal
                 )
-                 # Save immediately
-                 saved = self.db.create_schedule_block(block)
-                 created_blocks.append(saved)
-        
+                # Save immediately
+                saved = self.db.create_schedule_block(block)
+                created_blocks.append(saved)
+
         tasks = flexible_tasks
-        
-        
+
+
         if not tasks:
             return ScheduleResult(
                 success=True,
-                blocks_created=0,
-                schedule=[],
+                blocks_created=len(created_blocks),
+                schedule=created_blocks,
                 message="No pending tasks to schedule"
             )
-        
+
         # 4. Sort tasks by scheduling priority
         sorted_tasks = self._prioritize_tasks(tasks)
-        
+
         # 5. Allocate time slots for each task
-        created_blocks: List[ScheduleBlock] = []
         unscheduled_tasks: List[Task] = []
         
         for task in sorted_tasks:
@@ -389,7 +390,7 @@ class AIScheduler:
         try:
             h_start, m_start = map(int, task.start_time.split(":"))
             h_end, m_end = map(int, task.end_time.split(":"))
-        except:
+        except (ValueError, AttributeError):
             return []
 
         curr = period_start
@@ -425,9 +426,9 @@ class AIScheduler:
         try:
             h_start, m_start = map(int, task.start_time.split(":"))
             h_end, m_end = map(int, task.end_time.split(":"))
-        except:
+        except (ValueError, AttributeError):
             return []
-            
+
         # For non-recurring, due_datetime hold the specific date
         target_date = task.due_datetime
         

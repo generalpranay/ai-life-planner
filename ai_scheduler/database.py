@@ -149,7 +149,13 @@ class Database:
         Fetch all stats needed for behavioral analysis in one round-trip.
         Returns block totals, per-category rates, and time-of-day bucket rates.
         """
-        since = f"NOW() - INTERVAL '{days} days'"
+        # Defensive: coerce to safe int so the interval can be parameterized cleanly.
+        try:
+            days_int = int(days)
+        except (TypeError, ValueError):
+            days_int = 30
+        days_int = max(1, min(days_int, 3650))
+        since = "NOW() - (%s || ' days')::interval"
 
         with self.get_cursor() as cursor:
             # ── 1. Block-level totals ────────────────────────────────────────
@@ -162,7 +168,7 @@ class Database:
                 WHERE user_id = %s
                   AND start_datetime >= {since}
                   AND task_id IS NOT NULL
-            """, (user_id,))
+            """, (user_id, days_int))
             totals_row = cursor.fetchone()
 
             total     = int(totals_row['total']     or 0)
@@ -185,7 +191,7 @@ class Database:
                 WHERE user_id = %s AND created_at >= {since}
                 GROUP BY category
                 ORDER BY success_rate DESC NULLS LAST
-            """, (user_id,))
+            """, (user_id, days_int))
             category_rows = cursor.fetchall()
 
             # ── 3. Time-of-day bucket rates ──────────────────────────────────
@@ -213,7 +219,7 @@ class Database:
                   AND task_id IS NOT NULL
                 GROUP BY period
                 ORDER BY success_rate DESC NULLS LAST
-            """, (user_id,))
+            """, (user_id, days_int))
             bucket_rows = cursor.fetchall()
 
             # ── 4. Recent task history (for context) ─────────────────────────
@@ -231,7 +237,7 @@ class Database:
                   AND (sb.start_datetime >= {since} OR sb.start_datetime IS NULL)
                 ORDER BY sb.start_datetime ASC NULLS LAST
                 LIMIT 100
-            """, (user_id,))
+            """, (user_id, days_int))
             history_rows = cursor.fetchall()
 
         def _row(r):

@@ -23,7 +23,10 @@
       "Bash(flutter devices *)",
       "Bash(echo \"Flutter Chrome PID: $!\")",
       "Bash(flutter clean *)",
-      "Bash(python *)"
+      "Bash(python *)",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(./node_modules/.bin/tsc -p tsconfig.json --noEmit)"
     ]
   }
 }

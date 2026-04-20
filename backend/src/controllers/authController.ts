@@ -3,8 +3,10 @@ import { Request, Response } from "express";
 import { pool } from "../config/db";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { jwtSecret } from "../config/env";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const BCRYPT_ROUNDS = Number(process.env.BCRYPT_ROUNDS) || 12;
 
 export async function register(req: Request, res: Response) {
   try {
@@ -27,7 +29,7 @@ export async function register(req: Request, res: Response) {
       return res.status(400).json({ message: "Email already in use" });
     }
 
-    const hash = await bcrypt.hash(password, 10);
+    const hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
     const result = await pool.query(
       `
@@ -42,7 +44,7 @@ export async function register(req: Request, res: Response) {
 
     const token = jwt.sign(
       { userId: user.id },
-      process.env.JWT_SECRET as string,
+      jwtSecret(),
       { expiresIn: "7d" }
     );
 
@@ -79,7 +81,7 @@ export async function login(req: Request, res: Response) {
 
     const token = jwt.sign(
       { userId: user.id },
-      process.env.JWT_SECRET as string,
+      jwtSecret(),
       { expiresIn: "7d" }
     );
 
@@ -96,7 +98,7 @@ export async function refreshToken(req: Request, res: Response) {
   if (!token) return res.status(401).json({ message: "No token" });
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET as string, {
+    const decoded = jwt.verify(token, jwtSecret(), {
       ignoreExpiration: true,
     }) as { userId: number; iat: number; exp: number };
 
@@ -108,7 +110,7 @@ export async function refreshToken(req: Request, res: Response) {
 
     const newToken = jwt.sign(
       { userId: decoded.userId },
-      process.env.JWT_SECRET as string,
+      jwtSecret(),
       { expiresIn: "7d" }
     );
     res.json({ token: newToken });

@@ -15,13 +15,18 @@ class AuthService {
     );
 
     if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final token = data["token"];
+      try {
+        final data = jsonDecode(response.body);
+        if (data is! Map || data["token"] is! String) return false;
+        final token = data["token"] as String;
 
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString("token", token);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString("token", token);
 
-      return true;
+        return true;
+      } catch (_) {
+        return false;
+      }
     }
 
     return false;
