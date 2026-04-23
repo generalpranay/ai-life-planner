@@ -15,16 +15,25 @@ class _GoalDecomposeScreenState extends State<GoalDecomposeScreen>
     with SingleTickerProviderStateMixin {
   final _goalCtrl = TextEditingController();
   DateTime? _deadline;
+  int _weeksAvailable = 4;
+  final Set<String> _strongCategories = {};
+  final Set<String> _avoidCategories = {};
+  bool _showAdvanced = false;
+
   GoalDecomposition? _result;
   bool _loading = false;
   String? _error;
+
   late AnimationController _pulseCtrl;
   late Animation<double> _pulseAnim;
 
-  static const _accent = Color(0xFF7C3AED);
-  static const _green  = Color(0xFF22C55E);
-  static const _orange = Color(0xFFF97316);
-  static const _blue   = Color(0xFF3B82F6);
+  static const _accent  = Color(0xFF7C3AED);
+  static const _green   = Color(0xFF22C55E);
+  static const _orange  = Color(0xFFF97316);
+  static const _blue    = Color(0xFF3B82F6);
+  static const _rose    = Color(0xFFF43F5E);
+
+  static const _allCategories = ['study', 'work', 'health', 'personal'];
 
   @override
   void initState() {
@@ -68,12 +77,26 @@ class _GoalDecomposeScreenState extends State<GoalDecomposeScreen>
       setState(() => _error = 'Please select a deadline');
       return;
     }
-    setState(() { _loading = true; _error = null; _result = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+      _result = null;
+    });
     try {
       final today    = DateFormat('yyyy-MM-dd').format(DateTime.now());
       final deadline = DateFormat('yyyy-MM-dd').format(_deadline!);
-      final result   = await GoalService.decompose(goal: goal, deadline: deadline, today: today);
-      setState(() { _result = result; _loading = false; });
+      final result   = await GoalService.decompose(
+        goal:             goal,
+        deadline:         deadline,
+        today:            today,
+        weeksAvailable:   _weeksAvailable,
+        strongCategories: _strongCategories.toList(),
+        avoidCategories:  _avoidCategories.toList(),
+      );
+      setState(() {
+        _result  = result;
+        _loading = false;
+      });
     } catch (e) {
       setState(() {
         _error   = e.toString().replaceFirst('Exception: ', '');
@@ -84,9 +107,9 @@ class _GoalDecomposeScreenState extends State<GoalDecomposeScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isDark  = Theme.of(context).brightness == Brightness.dark;
-    final bg      = isDark ? const Color(0xFF0F0F1A) : const Color(0xFFF5F7FF);
-    final cardBg  = isDark ? const Color(0xFF1A1A2E) : Colors.white;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg     = isDark ? const Color(0xFF0F0F1A) : const Color(0xFFF5F7FF);
+    final cardBg = isDark ? const Color(0xFF1A1A2E) : Colors.white;
 
     return Scaffold(
       backgroundColor: bg,
@@ -98,19 +121,21 @@ class _GoalDecomposeScreenState extends State<GoalDecomposeScreen>
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [_accent, Color(0xFF2563EB)]),
+                gradient: const LinearGradient(colors: [_accent, _blue]),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.track_changes_rounded, color: Colors.white, size: 18),
+              child: const Icon(Icons.track_changes_rounded,
+                  color: Colors.white, size: 18),
             ),
             const SizedBox(width: 10),
             Text('Goal Decomposer',
-                style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 18)),
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.bold, fontSize: 18)),
           ],
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
         children: [
           _buildInputCard(cardBg, isDark),
           if (_error != null) ...[
@@ -151,20 +176,25 @@ class _GoalDecomposeScreenState extends State<GoalDecomposeScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('What do you want to achieve?',
-              style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14)),
+              style:
+                  GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14)),
           const SizedBox(height: 10),
           TextField(
             controller: _goalCtrl,
             maxLines: 3,
             style: GoogleFonts.inter(fontSize: 14),
             decoration: InputDecoration(
-              hintText: 'e.g. Learn React and build a portfolio website',
-              hintStyle: GoogleFonts.inter(color: Colors.grey.shade500, fontSize: 13),
+              hintText: 'e.g. Get a software internship in 3 months',
+              hintStyle:
+                  GoogleFonts.inter(color: Colors.grey.shade500, fontSize: 13),
               filled: true,
-              fillColor: isDark ? const Color(0xFF0F0F1A) : const Color(0xFFF8F8FF),
+              fillColor: isDark
+                  ? const Color(0xFF0F0F1A)
+                  : const Color(0xFFF8F8FF),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: _accent.withValues(alpha: 0.2)),
+                borderSide:
+                    BorderSide(color: _accent.withValues(alpha: 0.2)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -172,27 +202,36 @@ class _GoalDecomposeScreenState extends State<GoalDecomposeScreen>
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: _accent.withValues(alpha: 0.2)),
+                borderSide:
+                    BorderSide(color: _accent.withValues(alpha: 0.2)),
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             ),
           ),
           const SizedBox(height: 14),
-          Text('Deadline', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14)),
+          Text('Deadline',
+              style:
+                  GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14)),
           const SizedBox(height: 8),
           GestureDetector(
             onTap: _pickDeadline,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF0F0F1A) : const Color(0xFFF8F8FF),
+                color: isDark
+                    ? const Color(0xFF0F0F1A)
+                    : const Color(0xFFF8F8FF),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                    color: hasDl ? _accent : _accent.withValues(alpha: 0.2)),
+                    color:
+                        hasDl ? _accent : _accent.withValues(alpha: 0.2)),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.calendar_today_rounded, size: 16,
+                  Icon(Icons.calendar_today_rounded,
+                      size: 16,
                       color: hasDl ? _accent : Colors.grey.shade500),
                   const SizedBox(width: 10),
                   Text(
@@ -210,13 +249,94 @@ class _GoalDecomposeScreenState extends State<GoalDecomposeScreen>
               ),
             ),
           ),
+          const SizedBox(height: 14),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Weeks available: $_weeksAvailable',
+                  style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600, fontSize: 14)),
+              Text('${_weeksAvailable}w',
+                  style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: _accent,
+                      fontWeight: FontWeight.bold)),
+            ],
+          ),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: _accent,
+              thumbColor: _accent,
+              inactiveTrackColor: _accent.withValues(alpha: 0.2),
+              overlayColor: _accent.withValues(alpha: 0.12),
+              trackHeight: 3,
+            ),
+            child: Slider(
+              value: _weeksAvailable.toDouble(),
+              min: 1,
+              max: 26,
+              divisions: 25,
+              onChanged: (v) => setState(() => _weeksAvailable = v.round()),
+            ),
+          ),
+          GestureDetector(
+            onTap: () => setState(() => _showAdvanced = !_showAdvanced),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Icon(
+                    _showAdvanced
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.tune_rounded,
+                    size: 16,
+                    color: Colors.grey.shade500,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _showAdvanced
+                        ? 'Hide preferences'
+                        : 'Personalize (optional)',
+                    style: GoogleFonts.inter(
+                        fontSize: 12, color: Colors.grey.shade500),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_showAdvanced) ...[
+            const SizedBox(height: 10),
+            _buildCategoryPicker(
+              label: 'Strong at',
+              selected: _strongCategories,
+              activeColor: _green,
+              onToggle: (cat) => setState(() {
+                _strongCategories.contains(cat)
+                    ? _strongCategories.remove(cat)
+                    : _strongCategories.add(cat);
+              }),
+              isDark: isDark,
+            ),
+            const SizedBox(height: 10),
+            _buildCategoryPicker(
+              label: 'Avoid',
+              selected: _avoidCategories,
+              activeColor: _rose,
+              onToggle: (cat) => setState(() {
+                _avoidCategories.contains(cat)
+                    ? _avoidCategories.remove(cat)
+                    : _avoidCategories.add(cat);
+              }),
+              isDark: isDark,
+            ),
+          ],
           const SizedBox(height: 18),
           SizedBox(
             width: double.infinity,
             child: Container(
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                    colors: [_accent, Color(0xFF2563EB)]),
+                gradient:
+                    const LinearGradient(colors: [_accent, _blue]),
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
@@ -256,6 +376,62 @@ class _GoalDecomposeScreenState extends State<GoalDecomposeScreen>
     );
   }
 
+  Widget _buildCategoryPicker({
+    required String label,
+    required Set<String> selected,
+    required Color activeColor,
+    required void Function(String) onToggle,
+    required bool isDark,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade500)),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          children: _allCategories.map((cat) {
+            final isOn = selected.contains(cat);
+            return GestureDetector(
+              onTap: () => onToggle(cat),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isOn
+                      ? activeColor.withValues(alpha: 0.15)
+                      : (isDark
+                          ? const Color(0xFF0F0F1A)
+                          : const Color(0xFFF1F1F8)),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isOn
+                        ? activeColor.withValues(alpha: 0.5)
+                        : Colors.transparent,
+                  ),
+                ),
+                child: Text(
+                  cat,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight:
+                        isOn ? FontWeight.w600 : FontWeight.normal,
+                    color: isOn ? activeColor : Colors.grey.shade500,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
   // ── Loading ──────────────────────────────────────────────────────────────────
   Widget _buildLoading() {
     return Center(
@@ -268,7 +444,7 @@ class _GoalDecomposeScreenState extends State<GoalDecomposeScreen>
               height: 72,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [_accent, Color(0xFF2563EB)],
+                  colors: [_accent, _blue],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -286,11 +462,13 @@ class _GoalDecomposeScreenState extends State<GoalDecomposeScreen>
             ),
           ),
           const SizedBox(height: 20),
-          Text('Breaking down your goal…',
-              style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600)),
+          Text('Building your roadmap…',
+              style: GoogleFonts.inter(
+                  fontSize: 15, fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
-          Text('Building milestones and daily tasks',
-              style: GoogleFonts.inter(fontSize: 13, color: Colors.grey.shade500)),
+          Text('Distributing tasks across $_weeksAvailable weeks',
+              style: GoogleFonts.inter(
+                  fontSize: 13, color: Colors.grey.shade500)),
         ],
       ),
     );
@@ -307,11 +485,13 @@ class _GoalDecomposeScreenState extends State<GoalDecomposeScreen>
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 18),
+          const Icon(Icons.error_outline_rounded,
+              color: Colors.redAccent, size: 18),
           const SizedBox(width: 10),
           Expanded(
               child: Text(_error!,
-                  style: GoogleFonts.inter(fontSize: 13, color: Colors.redAccent))),
+                  style: GoogleFonts.inter(
+                      fontSize: 13, color: Colors.redAccent))),
         ],
       ),
     );
@@ -319,36 +499,86 @@ class _GoalDecomposeScreenState extends State<GoalDecomposeScreen>
 
   // ── Results ──────────────────────────────────────────────────────────────────
   Widget _buildResults(GoalDecomposition r, Color cardBg, bool isDark) {
+    final totalTasks =
+        r.weeks.fold<int>(0, (sum, w) => sum + w.dailyTasks.length);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Skills
-        _sectionTitle('Skills You\'ll Build'),
+        _buildSummaryCard(r, cardBg, isDark),
+        const SizedBox(height: 16),
+        _sectionLabel('Skills You\'ll Build'),
         const SizedBox(height: 8),
-        _skillsCard(r.skills, cardBg),
+        _buildSkillsCard(r.skills, cardBg),
         const SizedBox(height: 20),
-
-        // Weekly milestones
-        _sectionTitle('Weekly Milestones'),
+        _sectionLabel('${r.weeks.length}-Week Roadmap  •  $totalTasks tasks'),
         const SizedBox(height: 8),
-        _milestonesCard(r.weeklyMilestones, cardBg, isDark),
-        const SizedBox(height: 20),
-
-        // Daily tasks
-        _sectionTitle('Daily Tasks  •  ${r.dailyTasks.length} total'),
-        const SizedBox(height: 8),
-        _dailyTasksCard(r.dailyTasks, cardBg, isDark),
+        ...r.weeks.map((w) => _buildWeekCard(w, cardBg, isDark)),
       ],
     );
   }
 
-  Widget _sectionTitle(String t) => Text(
-        t,
-        style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.bold),
-      );
+  // ── Summary card ─────────────────────────────────────────────────────────────
+  Widget _buildSummaryCard(
+      GoalDecomposition r, Color cardBg, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            _accent.withValues(alpha: 0.12),
+            _blue.withValues(alpha: 0.08),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _accent.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.flag_rounded, size: 16, color: _accent),
+              const SizedBox(width: 6),
+              Text('Goal Plan',
+                  style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: _accent,
+                      letterSpacing: 0.5)),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: _accent.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${r.weeks.length}w plan',
+                  style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: _accent),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            r.summary,
+            style: GoogleFonts.inter(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   // ── Skills chips ─────────────────────────────────────────────────────────────
-  Widget _skillsCard(List<String> skills, Color cardBg) {
+  Widget _buildSkillsCard(List<String> skills, Color cardBg) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -361,11 +591,13 @@ class _GoalDecomposeScreenState extends State<GoalDecomposeScreen>
         runSpacing: 8,
         children: skills
             .map((s) => Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: _green.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: _green.withValues(alpha: 0.3)),
+                    border:
+                        Border.all(color: _green.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -386,151 +618,131 @@ class _GoalDecomposeScreenState extends State<GoalDecomposeScreen>
     );
   }
 
-  // ── Milestones timeline ───────────────────────────────────────────────────────
-  Widget _milestonesCard(
-      List<WeeklyMilestone> milestones, Color cardBg, bool isDark) {
+  // ── Week card ────────────────────────────────────────────────────────────────
+  Widget _buildWeekCard(Week w, Color cardBg, bool isDark) {
+    final isLast   = w.week == _result!.weeks.length;
+    final accent   = isLast ? _green : _accent;
+
     return Container(
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _accent.withValues(alpha: 0.15)),
+        border: Border.all(color: accent.withValues(alpha: 0.15)),
       ),
-      child: ListView.separated(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: milestones.length,
-        separatorBuilder: (context, index) => Divider(
-          height: 1,
-          color: _accent.withValues(alpha: 0.08),
-        ),
-        itemBuilder: (_, i) {
-          final m      = milestones[i];
-          final isLast = i == milestones.length - 1;
-          final color  = isLast ? _green : _accent;
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Column(
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.12),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: color.withValues(alpha: 0.3)),
-                      ),
-                      child: Center(
-                        child: Text('${m.week}',
-                            style: GoogleFonts.inter(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: color)),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Week ${m.week}',
-                          style: GoogleFonts.inter(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: color)),
-                      const SizedBox(height: 2),
-                      Text(m.milestone,
-                          style: GoogleFonts.inter(
-                              fontSize: 13,
-                              color: isDark ? Colors.white : Colors.black87)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  // ── Daily tasks list ─────────────────────────────────────────────────────────
-  Widget _dailyTasksCard(
-      List<DailyTask> tasks, Color cardBg, bool isDark) {
-    // Group by week number
-    final Map<int, List<DailyTask>> byWeek = {};
-    final first = DateTime.parse(tasks.first.day);
-    for (final t in tasks) {
-      final d    = DateTime.parse(t.day);
-      final week = ((d.difference(first).inDays) / 7).floor() + 1;
-      byWeek.putIfAbsent(week, () => []).add(t);
-    }
-
-    return Column(
-      children: byWeek.entries.map((e) {
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _blue.withValues(alpha: 0.12)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                child: Text('Week ${e.key}',
-                    style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: _blue)),
-              ),
-              ...e.value.map((t) => _taskRow(t, isDark)),
-            ],
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _taskRow(DailyTask t, bool isDark) {
-    final date    = DateTime.parse(t.day);
-    final dayName = DateFormat('EEE, MMM d').format(date);
-    final catColor = _categoryColor(t.category);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        children: [
-          Container(
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          childrenPadding: EdgeInsets.zero,
+          leading: Container(
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: catColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: catColor.withValues(alpha: 0.25)),
+              color: accent.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+              border: Border.all(color: accent.withValues(alpha: 0.3)),
             ),
-            child: Icon(_categoryIcon(t.category), size: 16, color: catColor),
+            child: Center(
+              child: Text('${w.week}',
+                  style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: accent)),
+            ),
+          ),
+          title: Text(
+            w.focus,
+            style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: accent),
+          ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              w.milestone,
+              style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: isDark
+                      ? Colors.white70
+                      : Colors.black54),
+            ),
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('${w.dailyTasks.length} tasks',
+                  style: GoogleFonts.inter(
+                      fontSize: 11, color: Colors.grey.shade500)),
+              const SizedBox(width: 4),
+              Icon(Icons.keyboard_arrow_down_rounded,
+                  size: 18, color: Colors.grey.shade500),
+            ],
+          ),
+          children: [
+            Divider(
+                height: 1,
+                color: accent.withValues(alpha: 0.1)),
+            ...w.dailyTasks.map((t) => _buildTaskRow(t, isDark)),
+            const SizedBox(height: 4),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Task row ─────────────────────────────────────────────────────────────────
+  Widget _buildTaskRow(DailyTask t, bool isDark) {
+    final catColor   = _categoryColor(t.category);
+    final energyIcon = _energyIcon(t.energyType);
+    final energyColor = _energyColor(t.energyType);
+    final dayColor   = _dayColor(t.dayOfWeek);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: catColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(9),
+              border:
+                  Border.all(color: catColor.withValues(alpha: 0.25)),
+            ),
+            child:
+                Icon(_categoryIcon(t.category), size: 15, color: catColor),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(t.task,
-                    style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: isDark ? Colors.white : Colors.black87)),
-                const SizedBox(height: 2),
-                Text('$dayName  •  ${t.durationMins} min',
-                    style: GoogleFonts.inter(
-                        fontSize: 11, color: Colors.grey.shade500)),
+                Text(
+                  t.title,
+                  style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? Colors.white : Colors.black87),
+                ),
+                const SizedBox(height: 5),
+                Row(
+                  children: [
+                    _pill(t.dayOfWeek, dayColor),
+                    const SizedBox(width: 6),
+                    _pill('${t.durationMins} min', Colors.grey.shade500),
+                    const SizedBox(width: 6),
+                    Icon(energyIcon, size: 12, color: energyColor),
+                    const SizedBox(width: 3),
+                    Text(t.energyType,
+                        style: GoogleFonts.inter(
+                            fontSize: 11, color: energyColor)),
+                  ],
+                ),
               ],
             ),
           ),
@@ -539,21 +751,70 @@ class _GoalDecomposeScreenState extends State<GoalDecomposeScreen>
     );
   }
 
+  Widget _pill(String label, Color color) => Container(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color),
+        ),
+      );
+
+  Widget _sectionLabel(String t) => Text(t,
+      style:
+          GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.bold));
+
+  // ── Helpers ──────────────────────────────────────────────────────────────────
   Color _categoryColor(String cat) {
     switch (cat) {
-      case 'study':    return _blue;
-      case 'work':     return _accent;
-      case 'health':   return _green;
-      default:         return _orange;
+      case 'study':  return _blue;
+      case 'work':   return _accent;
+      case 'health': return _green;
+      default:       return _orange;
     }
   }
 
   IconData _categoryIcon(String cat) {
     switch (cat) {
-      case 'study':    return Icons.menu_book_rounded;
-      case 'work':     return Icons.work_outline_rounded;
-      case 'health':   return Icons.fitness_center_rounded;
-      default:         return Icons.star_outline_rounded;
+      case 'study':  return Icons.menu_book_rounded;
+      case 'work':   return Icons.work_outline_rounded;
+      case 'health': return Icons.fitness_center_rounded;
+      default:       return Icons.star_outline_rounded;
+    }
+  }
+
+  IconData _energyIcon(String energy) {
+    switch (energy) {
+      case 'deep':    return Icons.bolt_rounded;
+      case 'light':   return Icons.wb_sunny_rounded;
+      default:        return Icons.headphones_rounded;
+    }
+  }
+
+  Color _energyColor(String energy) {
+    switch (energy) {
+      case 'deep':    return _accent;
+      case 'light':   return _orange;
+      default:        return _blue;
+    }
+  }
+
+  Color _dayColor(String day) {
+    switch (day) {
+      case 'Mon': return _rose;
+      case 'Tue': return _orange;
+      case 'Wed': return _green;
+      case 'Thu': return _blue;
+      case 'Fri': return _accent;
+      case 'Sat': return const Color(0xFFEC4899);
+      default:    return const Color(0xFF14B8A6);
     }
   }
 }
