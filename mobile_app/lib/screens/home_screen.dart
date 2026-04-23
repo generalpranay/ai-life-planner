@@ -17,6 +17,7 @@ import 'insights_screen.dart';
 import '../theme/app_theme.dart';
 import '../services/notification_service.dart';
 import 'edit_task_screen.dart';
+import 'goal_decompose_screen.dart';
 import '../widgets/error_retry_view.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -438,6 +439,18 @@ class _HomeScreenState extends State<HomeScreen>
                     Navigator.pop(context);
                     Navigator.push(context,
                         MaterialPageRoute(builder: (_) => const InsightsScreen()));
+                  },
+                ),
+                _DrawerItem(
+                  icon: Icons.track_changes_rounded,
+                  label: 'Goal Decomposer',
+                  subtitle: 'Break goals into daily tasks',
+                  accentColor: const Color(0xFF2563EB),
+                  isDark: isDark,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => const GoalDecomposeScreen()));
                   },
                 ),
               ],

@@ -287,6 +287,207 @@ export async function detectDayRisks(req: Request, res: Response) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// POST /api/ai/decompose-goal
+// Body: { goal: string, deadline: ISO-date string, today?: ISO-date string }
+// Returns: { weeklyMilestones, dailyTasks, skills }
+// ──────────────────────────────────────────────────────────────────────────────
+const SKILL_MAP: Array<[RegExp, string]> = [
+  [/react/i, "React"], [/vue/i, "Vue.js"], [/angular/i, "Angular"],
+  [/javascript|js\b/i, "JavaScript"], [/typescript|ts\b/i, "TypeScript"],
+  [/python/i, "Python"], [/node\.?js/i, "Node.js"], [/java\b/i, "Java"],
+  [/flutter/i, "Flutter"], [/dart/i, "Dart"],
+  [/sql|postgres|mysql|database/i, "SQL & Databases"],
+  [/api|rest\b|graphql/i, "API Design"],
+  [/docker|kubernetes/i, "Containerization"],
+  [/aws|azure|gcp|cloud/i, "Cloud Services"],
+  [/machine learning|deep learning|\bml\b|\bai\b/i, "Machine Learning"],
+  [/git\b|version control/i, "Git"], [/html|css/i, "HTML/CSS"],
+  [/figma|ui\b|ux\b|design/i, "UI/UX Design"],
+  [/fitness|gym|workout|exercise/i, "Physical Training"],
+  [/nutrition|diet/i, "Nutrition"], [/meditat|mindful/i, "Mindfulness"],
+  [/writing|blog|content/i, "Writing"], [/marketing|seo/i, "Digital Marketing"],
+  [/spanish|french|german|japanese|chinese|language/i, "Language Learning"],
+  [/swift|ios/i, "iOS/Swift"], [/kotlin|android/i, "Android/Kotlin"],
+  [/rust\b/i, "Rust"], [/go\b|golang/i, "Go"], [/c\+\+/i, "C++"],
+];
+
+function _extractSkills(goal: string): string[] {
+  const found: string[] = [];
+  for (const [re, skill] of SKILL_MAP) {
+    if (re.test(goal)) found.push(skill);
+  }
+  if (found.length === 0) {
+    const words = (goal.match(/\b[A-Za-z]{4,}\b/g) ?? [])
+      .filter((w) => !["that","this","with","from","have","will","been","want","need","build","learn","make","create","become"].includes(w.toLowerCase()))
+      .slice(0, 5)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+    found.push(...words);
+  }
+  return [...new Set(found)].slice(0, 8);
+}
+
+function _inferCategory(goal: string): "study" | "work" | "health" | "personal" {
+  const g = goal.toLowerCase();
+  if (/fitness|gym|run|health|diet|weight|exercise|workout|yoga|meditat/.test(g)) return "health";
+  if (/learn|study|course|exam|certif|read|tutorial|master|understand/.test(g)) return "study";
+  if (/build|develop|create|launch|project|product|code|program|implement|ship|deploy/.test(g)) return "work";
+  return "personal";
+}
+
+const PHASE_LABELS: Record<string, string[]> = {
+  study: [
+    "Set up learning environment and gather resources",
+    "Master foundational concepts and core theory",
+    "Deepen understanding through practice and examples",
+    "Apply knowledge in real exercises and mini-projects",
+    "Review gaps, consolidate, and finalize preparation",
+  ],
+  work: [
+    "Define scope, requirements, and development setup",
+    "Build core architecture and foundational components",
+    "Implement main features and primary functionality",
+    "Testing, bug-fixing, and performance refinement",
+    "Final polish, documentation, and delivery",
+  ],
+  health: [
+    "Assess baseline, set targets, and prepare routine",
+    "Build consistency with beginner-level training",
+    "Increase intensity and track measurable progress",
+    "Push performance peaks and optimise recovery",
+    "Evaluate results, maintain gains, and plan next cycle",
+  ],
+  personal: [
+    "Research, plan, and define clear objectives",
+    "Start execution with consistent daily actions",
+    "Build momentum and tackle obstacles",
+    "Refine approach based on results",
+    "Complete, review, and celebrate progress",
+  ],
+};
+
+const TASK_TEMPLATES: Record<string, Array<{ task: string; durationMins: number }>> = {
+  study: [
+    { task: "Review study materials and set up notes", durationMins: 45 },
+    { task: "Work through core concepts with examples", durationMins: 60 },
+    { task: "Complete practice exercises", durationMins: 60 },
+    { task: "Build a small project to apply learning", durationMins: 90 },
+    { task: "Revise previous week's topics", durationMins: 30 },
+    { task: "Watch tutorials / read documentation", durationMins: 45 },
+    { task: "Write summary notes and flashcards", durationMins: 30 },
+    { task: "Take a practice test or quiz", durationMins: 45 },
+  ],
+  work: [
+    { task: "Plan and scaffold the project structure", durationMins: 60 },
+    { task: "Implement a core feature or module", durationMins: 90 },
+    { task: "Write and run tests for current work", durationMins: 45 },
+    { task: "Code review and refactor session", durationMins: 60 },
+    { task: "Fix bugs found during testing", durationMins: 60 },
+    { task: "Update documentation and README", durationMins: 30 },
+    { task: "Integration testing and final QA", durationMins: 60 },
+    { task: "Deploy and validate in staging environment", durationMins: 45 },
+  ],
+  health: [
+    { task: "Complete scheduled workout session", durationMins: 60 },
+    { task: "Track nutrition and meal prep", durationMins: 30 },
+    { task: "Active recovery: stretching or yoga", durationMins: 30 },
+    { task: "Cardio training session", durationMins: 45 },
+    { task: "Strength training session", durationMins: 60 },
+    { task: "Log progress and review weekly stats", durationMins: 20 },
+    { task: "Plan next week's training schedule", durationMins: 20 },
+    { task: "Mobility and flexibility routine", durationMins: 30 },
+  ],
+  personal: [
+    { task: "Research and gather information", durationMins: 45 },
+    { task: "Execute the planned activity for today", durationMins: 60 },
+    { task: "Review progress and adjust plan", durationMins: 30 },
+    { task: "Deep focus session on primary objective", durationMins: 90 },
+    { task: "Connect with community or mentor", durationMins: 30 },
+    { task: "Journal and reflect on lessons learned", durationMins: 20 },
+    { task: "Tackle the hardest task of the week", durationMins: 60 },
+    { task: "Finalise deliverable or milestone output", durationMins: 45 },
+  ],
+};
+
+function _addDays(date: Date, days: number): Date {
+  return new Date(date.getTime() + days * 86_400_000);
+}
+
+function _isoDate(date: Date): string {
+  return date.toISOString().split("T")[0];
+}
+
+export async function decomposeGoal(req: Request, res: Response) {
+  const { goal, deadline, today } = req.body as { goal?: string; deadline?: string; today?: string };
+
+  if (!goal?.trim())    return res.status(400).json({ message: "goal is required" });
+  if (!deadline)        return res.status(400).json({ message: "deadline is required" });
+
+  const todayDate    = new Date(today ?? new Date().toISOString().split("T")[0]);
+  const deadlineDate = new Date(deadline);
+
+  if (isNaN(todayDate.getTime()) || isNaN(deadlineDate.getTime())) {
+    return res.status(400).json({ message: "Invalid date format — use ISO dates (YYYY-MM-DD)" });
+  }
+  if (deadlineDate <= todayDate) {
+    return res.status(400).json({ message: "deadline must be after today" });
+  }
+
+  const totalDays  = Math.ceil((deadlineDate.getTime() - todayDate.getTime()) / 86_400_000);
+  const totalWeeks = Math.max(1, Math.ceil(totalDays / 7));
+  const category   = _inferCategory(goal);
+  const phases     = PHASE_LABELS[category];
+  const templates  = TASK_TEMPLATES[category];
+
+  // Weekly milestones
+  const weeklyMilestones = Array.from({ length: totalWeeks }, (_, i) => {
+    const w   = i + 1;
+    const pct = w / totalWeeks;
+    const phaseIdx =
+      pct <= 0.15 || w === 1 ? 0 :
+      pct <= 0.40             ? 1 :
+      pct <= 0.70             ? 2 :
+      pct <= 0.90             ? 3 : 4;
+    return { week: w, milestone: phases[phaseIdx] };
+  });
+
+  // Daily tasks — 3-4 per week, weekdays only
+  const dailyTasks: Array<{ day: string; task: string; durationMins: number; category: string }> = [];
+  let templateIdx = 0;
+
+  for (let week = 0; week < totalWeeks; week++) {
+    const weekStart = _addDays(todayDate, week * 7);
+    const tasksThisWeek = week === totalWeeks - 1 ? 3 : (week % 2 === 0 ? 4 : 3);
+    let offset = 0;
+
+    for (let t = 0; t < tasksThisWeek; t++) {
+      // advance to a weekday
+      while (true) {
+        const day = _addDays(weekStart, offset).getDay();
+        if (day !== 0 && day !== 6) break;
+        offset++;
+      }
+      const taskDate = _addDays(weekStart, offset);
+      if (taskDate > deadlineDate) break;
+
+      dailyTasks.push({
+        day:          _isoDate(taskDate),
+        task:         templates[templateIdx % templates.length].task,
+        durationMins: templates[templateIdx % templates.length].durationMins,
+        category,
+      });
+      templateIdx++;
+      offset += 2; // spread tasks through the week
+    }
+  }
+
+  return res.json({
+    weeklyMilestones,
+    dailyTasks,
+    skills: _extractSkills(goal),
+  });
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // POST /api/ai/parse-task — NLP task parser (Python regex engine, no LLM)
 // ──────────────────────────────────────────────────────────────────────────────
 export async function parseNaturalTask(req: Request, res: Response) {
