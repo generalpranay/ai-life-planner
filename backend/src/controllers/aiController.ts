@@ -289,9 +289,124 @@ export async function detectDayRisks(req: Request, res: Response) {
 
 // ──────────────────────────────────────────────────────────────────────────────
 // POST /api/ai/decompose-goal
-// Body: { goal, deadline, today, weeks_available?, user_behavior? }
-// Returns: { goal_id, summary, skills, weeks:[{week,milestone,focus,daily_tasks}] }
+// Delegates to run_goal_decomposer.py which reads real user behavior from DB.
+// Body: { goal, deadline, today?, weeks_available?, user_behavior? }
+// Returns: { goal_id, summary, skills, weeks, behavior_context }
 // ──────────────────────────────────────────────────────────────────────────────
+
+export async function decomposeGoal(req: Request, res: Response): Promise<Response> {
+  const userId = (req as any).userId as number;
+  const { goal, deadline, today, weeks_available, user_behavior } = req.body as {
+    goal?: string;
+    deadline?: string;
+    today?: string;
+    weeks_available?: number;
+    user_behavior?: {
+      productive_hours?: string[];
+      strong_categories?: string[];
+      avoid_categories?: string[];
+    };
+  };
+
+  if (!goal?.trim()) return res.status(400).json({ message: "goal is required" });
+  if (!deadline)     return res.status(400).json({ message: "deadline is required" });
+
+  const todayStr     = today ?? new Date().toISOString().split("T")[0];
+  const todayDate    = new Date(todayStr);
+  const deadlineDate = new Date(deadline);
+
+  if (isNaN(todayDate.getTime()) || isNaN(deadlineDate.getTime()))
+    return res.status(400).json({ message: "Invalid date format — use YYYY-MM-DD" });
+  if (deadlineDate <= todayDate)
+    return res.status(400).json({ message: "deadline must be after today" });
+
+  try {
+    const payload = { goal, deadline, today: todayStr, weeks_available, user_behavior };
+    const result  = await runPython("run_goal_decomposer.py", [
+      String(userId),
+      JSON.stringify(payload),
+    ]);
+    if (result?.error) return res.status(422).json({ message: result.error });
+    return res.json(result);
+  } catch (err: any) {
+    console.error("decomposeGoal error:", err?.message ?? err);
+    return res.status(500).json({ message: "Goal decomposition failed" });
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// POST /api/ai/decompose-goal/save
+// Persists the generated plan: inserts tasks into DB then runs the scheduler.
+// Body: { weeks: [...], today: "YYYY-MM-DD" }
+// Returns: { tasks_created, task_ids, blocks_created, message }
+// ──────────────────────────────────────────────────────────────────────────────
+
+const DAY_OFFSET: Record<string, number> = {
+  Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6,
+};
+
+export async function saveGoalPlan(req: Request, res: Response): Promise<Response> {
+  const userId = (req as any).userId as number;
+  const { weeks, today } = req.body as {
+    weeks?: Array<{
+      week: number;
+      daily_tasks: Array<{
+        title: string;
+        category: string;
+        duration_mins: number;
+        day_of_week: string;
+      }>;
+    }>;
+    today?: string;
+  };
+
+  if (!Array.isArray(weeks) || weeks.length === 0)
+    return res.status(400).json({ message: "weeks array is required" });
+  if (!today)
+    return res.status(400).json({ message: "today is required" });
+
+  const todayDate = new Date(today);
+  if (isNaN(todayDate.getTime()))
+    return res.status(400).json({ message: "Invalid today date — use YYYY-MM-DD" });
+
+  const insertedIds: number[] = [];
+
+  for (const week of weeks) {
+    const weekStart = new Date(todayDate.getTime() + (week.week - 1) * 7 * 86_400_000);
+    for (const task of week.daily_tasks) {
+      const dayOff  = DAY_OFFSET[task.day_of_week] ?? 0;
+      const dueDate = new Date(weekStart.getTime() + dayOff * 86_400_000);
+      dueDate.setHours(9, 0, 0, 0);
+
+      const row = await pool.query(
+        `INSERT INTO tasks
+           (user_id, title, category, estimated_duration_minutes, due_datetime, priority, status)
+         VALUES ($1, $2, $3, $4, $5, 3, 'pending')
+         RETURNING id`,
+        [userId, task.title, task.category, task.duration_mins, dueDate.toISOString()],
+      );
+      insertedIds.push(row.rows[0].id as number);
+    }
+  }
+
+  // Run the scheduler to place newly saved tasks into scheduled_blocks
+  let blocksCreated = 0;
+  try {
+    const scheduleResult = await runPython("run_scheduler.py", [String(userId)]);
+    blocksCreated = scheduleResult?.blocks_created ?? 0;
+  } catch {
+    // Tasks are persisted; scheduler failure is non-fatal
+  }
+
+  return res.json({
+    tasks_created:  insertedIds.length,
+    task_ids:       insertedIds,
+    blocks_created: blocksCreated,
+    message: `${insertedIds.length} tasks saved and ${blocksCreated} schedule blocks created across ${weeks.length} weeks`,
+  });
+}
+
+// ── legacy TypeScript helpers kept for reference only (no longer called) ─────
 const SKILL_MAP: Array<[RegExp, string]> = [
   [/react/i, "React"], [/vue/i, "Vue.js"], [/angular/i, "Angular"],
   [/javascript|js\b/i, "JavaScript"], [/typescript|ts\b/i, "TypeScript"],
@@ -468,115 +583,6 @@ const TASK_TEMPLATES: Record<string, TaskTemplate[]> = {
     { title: "Complete high-priority personal task",             duration_mins: 55, energy_type: "deep"    },
   ],
 };
-
-export async function decomposeGoal(req: Request, res: Response): Promise<Response> {
-  const { goal, deadline, today, weeks_available, user_behavior } = req.body as {
-    goal?: string;
-    deadline?: string;
-    today?: string;
-    weeks_available?: number;
-    user_behavior?: {
-      productive_hours?: string[];
-      strong_categories?: string[];
-      avoid_categories?: string[];
-    };
-  };
-
-  if (!goal?.trim()) return res.status(400).json({ message: "goal is required" });
-  if (!deadline)     return res.status(400).json({ message: "deadline is required" });
-
-  const todayDate    = new Date(today ?? new Date().toISOString().split("T")[0]);
-  const deadlineDate = new Date(deadline);
-
-  if (isNaN(todayDate.getTime()) || isNaN(deadlineDate.getTime()))
-    return res.status(400).json({ message: "Invalid date format — use YYYY-MM-DD" });
-  if (deadlineDate <= todayDate)
-    return res.status(400).json({ message: "deadline must be after today" });
-
-  const totalDays  = Math.ceil((deadlineDate.getTime() - todayDate.getTime()) / 86_400_000);
-  const totalWeeks = Math.max(1, Math.ceil(totalDays / 7));
-
-  const weeksAvail: number =
-    typeof weeks_available === "number" && weeks_available > 0
-      ? Math.min(weeks_available, totalWeeks)
-      : totalWeeks;
-
-  const behavior   = user_behavior ?? {};
-  const avoidCats  = (behavior.avoid_categories  ?? []).map((s) => s.toLowerCase());
-  const strongCats = (behavior.strong_categories ?? []).map((s) => s.toLowerCase());
-
-  function isCategoryAvoided(cat: string): boolean {
-    const aliases = CATEGORY_ALIASES[cat] ?? [cat];
-    return avoidCats.some((av) =>
-      aliases.some((alias) => alias.includes(av) || av.includes(alias)),
-    );
-  }
-
-  const rawCategory  = _inferCategory(goal);
-  const effectiveCat =
-    (["study", "work", "personal", "health"] as const).find(
-      (c) => c === rawCategory && !isCategoryAvoided(c),
-    ) ??
-    (["study", "work", "personal", "health"] as const).find((c) => !isCategoryAvoided(c)) ??
-    rawCategory;
-
-  const isStrong =
-    strongCats.length === 0 ||
-    (CATEGORY_ALIASES[effectiveCat] ?? [effectiveCat]).some((alias) =>
-      strongCats.some((s) => s.includes(alias) || alias.includes(s)),
-    );
-
-  const goalWords = goal.trim().split(/\s+/);
-  const summary   = goalWords.length <= 15 ? goal.trim() : goalWords.slice(0, 15).join(" ");
-  const skills    = _extractSkills(goal);
-  const goal_id   = randomUUID();
-  const phases    = PHASE_LABELS[effectiveCat];
-
-  function phaseIdx(pct: number): number {
-    if (pct <= 0.15) return 0;
-    if (pct <= 0.40) return 1;
-    if (pct <= 0.70) return 2;
-    if (pct <= 0.90) return 3;
-    return 4;
-  }
-
-  function buildDailyTasks(weekNum: number, isFirst: boolean) {
-    const taskCount = weekNum % 2 === 0 ? 4 : 3;
-    const days      = WEEKDAYS.slice(0, taskCount);
-    const pool      = isFirst ? WEEK1_TASKS[effectiveCat] : TASK_TEMPLATES[effectiveCat];
-    const offset    = isFirst
-      ? 0
-      : Math.floor(((weekNum - 2) / Math.max(1, weeksAvail - 1)) * pool.length);
-
-    return days.map((day, i) => {
-      const tpl        = pool[(offset + i) % pool.length];
-      const energy_type: "deep" | "light" | "passive" =
-        !isStrong && tpl.energy_type === "deep" ? "light" : tpl.energy_type;
-      return {
-        title:         tpl.title,
-        category:      effectiveCat,
-        duration_mins: tpl.duration_mins,
-        energy_type,
-        day_of_week:   day,
-      };
-    });
-  }
-
-  const weeks = Array.from({ length: weeksAvail }, (_, idx) => {
-    const weekNum = idx + 1;
-    const pct     = weekNum / weeksAvail;
-    const pi      = phaseIdx(pct);
-    const isFirst = weekNum === 1;
-    return {
-      week:        weekNum,
-      milestone:   phases[pi],
-      focus:       isFirst ? FOCUS_LABELS[0] : FOCUS_LABELS[pi],
-      daily_tasks: buildDailyTasks(weekNum, isFirst),
-    };
-  });
-
-  return res.json({ goal_id, summary, skills, weeks });
-}
 
 // ──────────────────────────────────────────────────────────────────────────────
 // POST /api/ai/parse-task — NLP task parser (Python regex engine, no LLM)

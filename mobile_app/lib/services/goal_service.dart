@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:intl/intl.dart';
 import '../config/api_config.dart';
 import '../models/goal_decomposition.dart';
 import 'api_service.dart';
@@ -39,6 +40,40 @@ class GoalService {
         (jsonDecode(response.body) as Map?)?.containsKey('message') == true
             ? (jsonDecode(response.body) as Map)['message'] as String
             : 'Goal decomposition failed';
+    throw Exception(msg);
+  }
+
+  static Future<Map<String, dynamic>> saveGoalPlan({
+    required List<Week> weeks,
+  }) async {
+    final token = await AuthService.getToken();
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final weeksJson = weeks
+        .map((w) => {
+              'week': w.week,
+              'daily_tasks': w.dailyTasks
+                  .map((t) => {
+                        'title': t.title,
+                        'category': t.category,
+                        'duration_mins': t.durationMins,
+                        'day_of_week': t.dayOfWeek,
+                      })
+                  .toList(),
+            })
+        .toList();
+
+    final response = await ApiService.post(
+      '${ApiConfig.baseUrl}${ApiConfig.aiSaveGoalPlan}',
+      token: token,
+      body: {'weeks': weeksJson, 'today': today},
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    final msg =
+        (jsonDecode(response.body) as Map?)?.containsKey('message') == true
+            ? (jsonDecode(response.body) as Map)['message'] as String
+            : 'Save failed';
     throw Exception(msg);
   }
 }

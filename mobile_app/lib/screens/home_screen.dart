@@ -18,6 +18,7 @@ import '../theme/app_theme.dart';
 import '../services/notification_service.dart';
 import 'edit_task_screen.dart';
 import 'goal_decompose_screen.dart';
+import 'events_screen.dart';
 import '../widgets/error_retry_view.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -419,6 +420,18 @@ class _HomeScreenState extends State<HomeScreen>
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 8),
               children: [
+                _DrawerItem(
+                  icon: Icons.event_outlined,
+                  label: 'Events',
+                  subtitle: 'Meetings & reminders',
+                  accentColor: AppColors.info,
+                  isDark: isDark,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => const EventsScreen()));
+                  },
+                ),
                 _DrawerItem(
                   icon: Icons.public_rounded,
                   label: 'Web Resources',

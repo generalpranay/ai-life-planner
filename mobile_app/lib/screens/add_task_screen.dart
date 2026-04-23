@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../services/task_service.dart';
+import '../services/ai_service.dart';
 import '../theme/app_theme.dart';
 
 class AddTaskScreen extends StatefulWidget {
@@ -20,6 +21,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   String   _category  = 'study';
   int      _priority  = 3;
   bool     _loading   = false;
+  bool     _nlpMode   = false;
+  bool     _parsing   = false;
+  final _nlpCtrl = TextEditingController();
 
   // One-time scheduling
   DateTime?  _selectedDate;
@@ -50,7 +54,10 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     _descCtrl.dispose();
     _goalCtrl.dispose();
     _minsCtrl.dispose();
-    for (final c in _checklistCtrls) c.dispose();
+    _nlpCtrl.dispose();
+    for (final c in _checklistCtrls) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -97,6 +104,69 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           : (_endTime   ?? TimeOfDay.now()),
     );
     if (t != null) setState(() => isStart ? _startTime = t : _endTime = t);
+  }
+
+  // ── NLP Parse ──────────────────────────────────────────────────────────────
+
+  Future<void> _parseWithAI() async {
+    final text = _nlpCtrl.text.trim();
+    if (text.isEmpty) {
+      _snack('Describe your task first');
+      return;
+    }
+    setState(() => _parsing = true);
+    try {
+      final p = await AiService.parseTask(text);
+      if (p == null) {
+        _snack('Could not parse — try rephrasing');
+        return;
+      }
+      setState(() {
+        if ((p['title'] as String?)?.isNotEmpty == true) {
+          _titleCtrl.text = p['title'] as String;
+        }
+        if ((p['description'] as String?)?.isNotEmpty == true) {
+          _descCtrl.text = p['description'] as String;
+        }
+        if (p['category'] != null) _category = p['category'] as String;
+        if (p['priority'] != null) _priority = (p['priority'] as int).clamp(1, 5);
+        if (p['is_recurring'] == true) {
+          _isRecurring = true;
+          final days = p['recurrence_days'];
+          if (days is List) {
+            _recurrenceDays
+              ..clear()
+              ..addAll(days.cast<String>());
+          }
+        }
+        if (p['estimated_minutes'] != null) {
+          _minsCtrl.text = p['estimated_minutes'].toString();
+        }
+        if (p['due_date'] != null) {
+          _selectedDate = DateTime.tryParse(p['due_date'] as String);
+        }
+        if (p['start_time'] != null) {
+          final parts = (p['start_time'] as String).split(':');
+          if (parts.length == 2) {
+            _startTime = TimeOfDay(
+                hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+          }
+        }
+        if (p['end_time'] != null) {
+          final parts = (p['end_time'] as String).split(':');
+          if (parts.length == 2) {
+            _endTime = TimeOfDay(
+                hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+          }
+        }
+        _nlpMode = false;
+      });
+      _snack('Form filled — review and save');
+    } catch (e) {
+      _snack('Parse error: ${e.toString().replaceFirst('Exception: ', '')}');
+    } finally {
+      if (mounted) setState(() => _parsing = false);
+    }
   }
 
   // ── Submit ─────────────────────────────────────────────────────────────────
@@ -289,6 +359,15 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
               color: isDark ? AppColors.darkText : AppColors.lightText,
             )),
         actions: [
+          IconButton(
+            icon: Icon(
+              Icons.auto_awesome_rounded,
+              color: _nlpMode ? AppColors.accent : (isDark ? AppColors.darkMuted : AppColors.lightMuted),
+              size: 22,
+            ),
+            tooltip: 'AI Smart Input',
+            onPressed: () => setState(() => _nlpMode = !_nlpMode),
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: _loading
@@ -314,6 +393,12 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── NLP Smart Input ────────────────────────────────────────────
+            if (_nlpMode) ...[
+              _buildNlpCard(isDark),
+              const SizedBox(height: 16),
+            ],
+
             // ── Basic Info ─────────────────────────────────────────────────
             _Section(
               label: 'DETAILS',
@@ -556,7 +641,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                         Switch(
                           value: _isRecurring,
                           onChanged: (v) => setState(() => _isRecurring = v),
-                          activeColor: AppColors.accent,
+                          activeThumbColor: AppColors.accent,
                           materialTapTargetSize:
                               MaterialTapTargetSize.shrinkWrap,
                         ),
@@ -833,6 +918,96 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // ── NLP Card ───────────────────────────────────────────────────────────────
+
+  Widget _buildNlpCard(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.accent.withValues(alpha: 0.12),
+            const Color(0xFF3B82F6).withValues(alpha: 0.08),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.auto_awesome_rounded,
+                  size: 16, color: AppColors.accent),
+              const SizedBox(width: 6),
+              Text('AI Smart Input',
+                  style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.accent,
+                      letterSpacing: 0.3)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _nlpCtrl,
+            maxLines: 2,
+            style: GoogleFonts.inter(fontSize: 14,
+                color: isDark ? AppColors.darkText : AppColors.lightText),
+            decoration: InputDecoration(
+              hintText:
+                  'e.g. "Study DSA on Mon Wed Fri at 7pm for 90 min"',
+              hintStyle: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: isDark ? AppColors.darkMuted : AppColors.lightMuted),
+              filled: true,
+              fillColor: isDark ? AppColors.darkBg : AppColors.lightBg,
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(
+                      color: AppColors.accent.withValues(alpha: 0.25))),
+              enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(
+                      color: AppColors.accent.withValues(alpha: 0.25))),
+              focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide:
+                      const BorderSide(color: AppColors.accent)),
+              contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12, vertical: 10),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            height: 42,
+            child: ElevatedButton.icon(
+              onPressed: _parsing ? null : _parseWithAI,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.accent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+              icon: _parsing
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.bolt_rounded, size: 18),
+              label: Text(_parsing ? 'Parsing…' : 'Parse & Fill',
+                  style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600, fontSize: 14)),
+            ),
+          ),
+        ],
       ),
     );
   }

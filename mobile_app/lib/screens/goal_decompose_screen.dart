@@ -22,7 +22,9 @@ class _GoalDecomposeScreenState extends State<GoalDecomposeScreen>
 
   GoalDecomposition? _result;
   bool _loading = false;
+  bool _saving = false;
   String? _error;
+  String? _saveMessage;
 
   late AnimationController _pulseCtrl;
   late Animation<double> _pulseAnim;
@@ -94,13 +96,36 @@ class _GoalDecomposeScreenState extends State<GoalDecomposeScreen>
         avoidCategories:  _avoidCategories.toList(),
       );
       setState(() {
-        _result  = result;
-        _loading = false;
+        _result      = result;
+        _loading     = false;
+        _saveMessage = null;
       });
     } catch (e) {
       setState(() {
         _error   = e.toString().replaceFirst('Exception: ', '');
         _loading = false;
+      });
+    }
+  }
+
+  Future<void> _saveToSchedule() async {
+    if (_result == null) return;
+    setState(() {
+      _saving      = true;
+      _saveMessage = null;
+      _error       = null;
+    });
+    try {
+      final res = await GoalService.saveGoalPlan(weeks: _result!.weeks);
+      setState(() {
+        _saveMessage = res['message'] as String? ??
+            '${res['tasks_created']} tasks saved to schedule';
+        _saving = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error  = e.toString().replaceFirst('Exception: ', '');
+        _saving = false;
       });
     }
   }
@@ -149,6 +174,10 @@ class _GoalDecomposeScreenState extends State<GoalDecomposeScreen>
           if (_result != null) ...[
             const SizedBox(height: 20),
             _buildResults(_result!, cardBg, isDark),
+          ],
+          if (_saveMessage != null) ...[
+            const SizedBox(height: 12),
+            _buildSaveBanner(isDark),
           ],
         ],
       ),
@@ -513,7 +542,96 @@ class _GoalDecomposeScreenState extends State<GoalDecomposeScreen>
         _sectionLabel('${r.weeks.length}-Week Roadmap  •  $totalTasks tasks'),
         const SizedBox(height: 8),
         ...r.weeks.map((w) => _buildWeekCard(w, cardBg, isDark)),
+        const SizedBox(height: 20),
+        _buildSaveButton(),
       ],
+    );
+  }
+
+  Widget _buildSaveButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: _saving
+              ? null
+              : const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF059669)]),
+          color: _saving ? const Color(0xFF10B981) : null,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: _saving
+              ? null
+              : [
+                  BoxShadow(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: _saving ? null : _saveToSchedule,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: _saving
+                    ? [
+                        const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white)),
+                        const SizedBox(width: 10),
+                        const Text('Saving to Schedule…',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15)),
+                      ]
+                    : [
+                        const Icon(Icons.save_alt_rounded,
+                            color: Colors.white, size: 18),
+                        const SizedBox(width: 8),
+                        const Text('Save to Schedule',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15)),
+                      ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSaveBanner(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF10B981).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+            color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle_rounded,
+              color: Color(0xFF10B981), size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              _saveMessage!,
+              style: const TextStyle(
+                  fontSize: 13, color: Color(0xFF10B981)),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

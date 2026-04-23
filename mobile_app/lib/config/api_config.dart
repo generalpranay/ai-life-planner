@@ -30,6 +30,7 @@ class ApiConfig {
   static const String aiPredictRisks   = "/api/ai/predict-risks";
   static const String aiRiskAction     = "/api/ai/risk-action";
   static const String aiDecomposeGoal  = "/api/ai/decompose-goal";
+  static const String aiSaveGoalPlan   = "/api/ai/decompose-goal/save";
 
   // Web Resources
   static const String webResources = "/api/web-resources";
