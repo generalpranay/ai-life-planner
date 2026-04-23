@@ -26,7 +26,10 @@
       "Bash(python *)",
       "Bash(./node_modules/.bin/tsc --noEmit)",
       "Bash(echo \"exit=$?\")",
-      "Bash(./node_modules/.bin/tsc -p tsconfig.json --noEmit)"
+      "Bash(./node_modules/.bin/tsc -p tsconfig.json --noEmit)",
+      "Bash(git push *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
