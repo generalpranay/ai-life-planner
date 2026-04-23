@@ -9,20 +9,36 @@ class GoalService {
     required String goal,
     required String deadline,
     required String today,
+    int? weeksAvailable,
+    List<String> strongCategories = const [],
+    List<String> avoidCategories = const [],
+    List<String> productiveHours = const [],
   }) async {
     final token = await AuthService.getToken();
+    final body = <String, dynamic>{
+      'goal': goal,
+      'deadline': deadline,
+      'today': today,
+      if (weeksAvailable != null) 'weeks_available': weeksAvailable,
+      'user_behavior': {
+        'productive_hours': productiveHours,
+        'strong_categories': strongCategories,
+        'avoid_categories': avoidCategories,
+      },
+    };
     final response = await ApiService.post(
       '${ApiConfig.baseUrl}${ApiConfig.aiDecomposeGoal}',
       token: token,
-      body: {'goal': goal, 'deadline': deadline, 'today': today},
+      body: body,
     );
     if (response.statusCode == 200) {
       return GoalDecomposition.fromJson(
           jsonDecode(response.body) as Map<String, dynamic>);
     }
-    final msg = (jsonDecode(response.body) as Map?)?.containsKey('message') == true
-        ? (jsonDecode(response.body) as Map)['message'] as String
-        : 'Goal decomposition failed';
+    final msg =
+        (jsonDecode(response.body) as Map?)?.containsKey('message') == true
+            ? (jsonDecode(response.body) as Map)['message'] as String
+            : 'Goal decomposition failed';
     throw Exception(msg);
   }
 }
