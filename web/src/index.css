@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+@theme {
+  --color-accent: #7C3AED;
+  --color-accent-hover: #6D28D9;
+  --color-accent-soft: rgba(124,58,237,0.12);
+  --color-cyan: #06B6D4;
+  --color-bg: #09090B;
+  --color-surface: #18181B;
+  --color-surface2: #27272A;
+  --color-border: rgba(255,255,255,0.08);
+  --color-border2: rgba(255,255,255,0.12);
+  --color-text: #F4F4F5;
+  --color-muted: #71717A;
+  --color-subtle: #52525B;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
+
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: #09090B;
+  color: #F4F4F5;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root { height: 100vh; display: flex; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #27272A; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3F3F46; }
+
+input, textarea, select {
+  outline: none;
+}
+
+.gradient-accent {
+  background: linear-gradient(135deg, #7C3AED, #5B21B6);
+}
