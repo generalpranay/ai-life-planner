@@ -129,9 +129,12 @@ export default function GoalsPage() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="px-6 py-4 border-b border-white/8 flex-shrink-0">
-        <h1 className="text-xl font-bold text-[#F4F4F5]">Goal Decomposer</h1>
-        <p className="text-xs text-[#71717A] mt-0.5">Break big goals into a weekly plan</p>
+      <div
+        className="px-6 py-4 border-b border-white/[0.06] flex-shrink-0 sticky top-0 z-10"
+        style={{ background: 'rgba(9,9,11,0.85)', backdropFilter: 'blur(12px)' }}
+      >
+        <h1 className="text-[18px] font-bold text-[#F2F2F2] tracking-tight">Goal Decomposer</h1>
+        <p className="text-[12px] text-[#88888E] mt-0.5">Break big goals into a weekly plan</p>
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 py-4">

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Plus, Pencil, Trash2, X, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Loader2, ChevronDown, ChevronUp, CheckSquare } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import api from '../lib/api';
@@ -13,18 +13,36 @@ interface Task {
 
 const CATEGORIES = ['work', 'study', 'health', 'personal', 'routine', 'break'];
 const CAT_COLORS: Record<string, string> = {
-  work: '#F59E0B', study: '#3B82F6', health: '#10B981', personal: '#8B5CF6',
-  routine: '#EC4899', break: '#06B6D4',
+  work: '#F59E0B', study: '#3B82F6', health: '#10B981',
+  personal: '#8B5CF6', routine: '#EC4899', break: '#06B6D4',
+};
+const PRIORITY_CONFIG: Record<number, { label: string; color: string; bg: string }> = {
+  1: { label: 'P1', color: '#EF4444', bg: 'rgba(239,68,68,0.12)' },
+  2: { label: 'P2', color: '#F97316', bg: 'rgba(249,115,22,0.12)' },
+  3: { label: 'P3', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
+  4: { label: 'P4', color: '#3B82F6', bg: 'rgba(59,130,246,0.12)' },
+  5: { label: 'P5', color: '#88888E', bg: 'rgba(136,136,142,0.10)' },
 };
 
-function TaskModal({
-  task,
-  onClose,
-  onSaved,
-}: {
-  task?: Task;
-  onClose: () => void;
-  onSaved: () => void;
+/* ── Task skeleton ──────────────────────────────────────────── */
+function TaskSkeleton() {
+  return (
+    <div className="bg-[#111113] border border-white/[0.06] rounded-xl px-4 py-3.5 flex items-center gap-3">
+      <div className="skeleton w-[3px] h-10 rounded-full flex-shrink-0" />
+      <div className="flex-1 space-y-2">
+        <div className="skeleton h-4 w-52 rounded-md" />
+        <div className="skeleton h-3 w-36 rounded-md" />
+      </div>
+      <div className="skeleton h-6 w-8 rounded-md flex-shrink-0" />
+      <div className="skeleton h-7 w-7 rounded-lg flex-shrink-0" />
+      <div className="skeleton h-7 w-7 rounded-lg flex-shrink-0" />
+    </div>
+  );
+}
+
+/* ── Task modal ─────────────────────────────────────────────── */
+function TaskModal({ task, onClose, onSaved }: {
+  task?: Task; onClose: () => void; onSaved: () => void;
 }) {
   const [title, setTitle] = useState(task?.title ?? '');
   const [description, setDescription] = useState(task?.description ?? '');
@@ -65,90 +83,82 @@ function TaskModal({
     }
   };
 
+  const inputCls = 'input-glow';
+  const selectCls = 'input-glow cursor-pointer';
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-md bg-[#18181B] border border-white/8 rounded-2xl shadow-2xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/8">
-          <h2 className="text-base font-semibold text-[#F4F4F5]">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div className="w-full max-w-md gradient-border bg-[#111113] rounded-2xl shadow-2xl shadow-black/70 animate-scale-in">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+          <h2 className="text-[14px] font-semibold text-[#F2F2F2]">
             {task ? 'Edit task' : 'New task'}
           </h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/5 text-[#71717A]">
-            <X size={16} />
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-white/[0.06] text-[#88888E] hover:text-[#F2F2F2] transition-colors"
+          >
+            <X size={15} />
           </button>
         </div>
 
         <form onSubmit={submit} className="p-5 space-y-4">
           <div>
-            <label className="block text-xs font-medium text-[#71717A] mb-1.5">Title *</label>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-              placeholder="Task title"
-              className="w-full px-3 py-2.5 rounded-xl bg-[#27272A] border border-white/8 text-sm text-[#F4F4F5] placeholder:text-[#52525B] focus:border-[#7C3AED] transition-colors"
-            />
+            <label className="block text-[11px] font-semibold text-[#88888E] uppercase tracking-widest mb-1.5">Title *</label>
+            <input value={title} onChange={e => setTitle(e.target.value)} required placeholder="Task title" className={inputCls} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-[#71717A] mb-1.5">Category</label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl bg-[#27272A] border border-white/8 text-sm text-[#F4F4F5] focus:border-[#7C3AED] transition-colors"
-              >
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
+              <label className="block text-[11px] font-semibold text-[#88888E] uppercase tracking-widest mb-1.5">Category</label>
+              <select value={category} onChange={e => setCategory(e.target.value)} className={selectCls}>
+                {CATEGORIES.map(c => (
+                  <option key={c} value={c} style={{ background: '#1C1C1F' }}>
+                    {c.charAt(0).toUpperCase() + c.slice(1)}
+                  </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-[#71717A] mb-1.5">Priority (1–5)</label>
+              <label className="block text-[11px] font-semibold text-[#88888E] uppercase tracking-widest mb-1.5">Priority (1–5)</label>
               <input
                 type="number" min={1} max={5} value={priority}
-                onChange={(e) => setPriority(parseInt(e.target.value))}
-                className="w-full px-3 py-2.5 rounded-xl bg-[#27272A] border border-white/8 text-sm text-[#F4F4F5] focus:border-[#7C3AED] transition-colors"
+                onChange={e => setPriority(parseInt(e.target.value))}
+                className={inputCls}
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-[#71717A] mb-1.5">Description</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={2}
-              placeholder="Optional description"
-              className="w-full px-3 py-2.5 rounded-xl bg-[#27272A] border border-white/8 text-sm text-[#F4F4F5] placeholder:text-[#52525B] focus:border-[#7C3AED] transition-colors resize-none"
-            />
+            <label className="block text-[11px] font-semibold text-[#88888E] uppercase tracking-widest mb-1.5">Today's goal</label>
+            <input value={todaysGoal} onChange={e => setTodaysGoal(e.target.value)} placeholder="What to accomplish today" className={inputCls} />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-[#71717A] mb-1.5">Today's goal</label>
-            <input
-              value={todaysGoal}
-              onChange={(e) => setTodaysGoal(e.target.value)}
-              placeholder="What to accomplish today"
-              className="w-full px-3 py-2.5 rounded-xl bg-[#27272A] border border-white/8 text-sm text-[#F4F4F5] placeholder:text-[#52525B] focus:border-[#7C3AED] transition-colors"
+            <label className="block text-[11px] font-semibold text-[#88888E] uppercase tracking-widest mb-1.5">Description</label>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              rows={2} placeholder="Optional description"
+              className={inputCls}
+              style={{ resize: 'none', borderRadius: 10 }}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-[#71717A] mb-1.5">Due date</label>
-              <input
-                type="datetime-local" value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl bg-[#27272A] border border-white/8 text-sm text-[#F4F4F5] focus:border-[#7C3AED] transition-colors"
-              />
+              <label className="block text-[11px] font-semibold text-[#88888E] uppercase tracking-widest mb-1.5">Due date</label>
+              <input type="datetime-local" value={dueDate} onChange={e => setDueDate(e.target.value)} className={inputCls} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-[#71717A] mb-1.5">Est. minutes</label>
+              <label className="block text-[11px] font-semibold text-[#88888E] uppercase tracking-widest mb-1.5">Est. minutes</label>
               <input
                 type="number" min={1} value={estimatedMinutes}
-                onChange={(e) => setEstimatedMinutes(e.target.value)}
-                placeholder="60"
-                className="w-full px-3 py-2.5 rounded-xl bg-[#27272A] border border-white/8 text-sm text-[#F4F4F5] placeholder:text-[#52525B] focus:border-[#7C3AED] transition-colors"
+                onChange={e => setEstimatedMinutes(e.target.value)}
+                placeholder="60" className={inputCls}
               />
             </div>
           </div>
@@ -156,9 +166,10 @@ function TaskModal({
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 rounded-xl gradient-accent text-white text-sm font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-60"
+            className="btn-primary w-full"
+            style={{ borderRadius: 10, padding: '11px 20px', marginTop: 4 }}
           >
-            {loading && <Loader2 size={15} className="animate-spin" />}
+            {loading && <Loader2 size={14} className="animate-spin" />}
             {task ? 'Save changes' : 'Create task'}
           </button>
         </form>
@@ -167,82 +178,126 @@ function TaskModal({
   );
 }
 
-function TaskRow({ task, onEdit, onDelete }: { task: Task; onEdit: () => void; onDelete: () => void }) {
+/* ── Task row ───────────────────────────────────────────────── */
+function TaskRow({ task, onEdit, onDelete }: {
+  task: Task; onEdit: () => void; onDelete: () => void;
+}) {
   const [expanded, setExpanded] = useState(false);
-  const color = CAT_COLORS[task.category] ?? '#71717A';
+  const color = CAT_COLORS[task.category] ?? '#88888E';
+  const pc = PRIORITY_CONFIG[task.priority] ?? PRIORITY_CONFIG[5];
+  const hasDetails = !!(task.description || task.todays_goal || task.checklist.length > 0);
 
   return (
-    <div className="bg-[#18181B] border border-white/8 rounded-xl overflow-hidden">
-      <div className="flex items-center gap-3 px-4 py-3">
-        <div className="w-1 h-8 rounded-full flex-shrink-0" style={{ background: color }} />
+    <div className="card-hover bg-[#111113] border border-white/[0.06] rounded-xl overflow-hidden group">
+      <div className="flex items-center gap-3 px-4 py-3.5">
+        {/* Category bar */}
+        <div className="w-[3px] h-10 rounded-full flex-shrink-0" style={{ background: color }} />
+
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-[#F4F4F5] truncate">{task.title}</p>
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-[10px] uppercase font-semibold tracking-wide" style={{ color }}>
+          <p className="text-[13.5px] font-medium text-[#F2F2F2] truncate">{task.title}</p>
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+            <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color }}>
               {task.category}
             </span>
             <span className="text-[#52525B]">·</span>
-            <span className="text-xs text-[#71717A]">P{task.priority}</span>
             {task.estimated_duration_minutes && (
               <>
+                <span className="text-[11.5px] text-[#88888E]">{task.estimated_duration_minutes}m</span>
                 <span className="text-[#52525B]">·</span>
-                <span className="text-xs text-[#71717A]">{task.estimated_duration_minutes}min</span>
               </>
             )}
             {task.due_datetime && (
               <>
-                <span className="text-[#52525B]">·</span>
-                <span className="text-xs text-[#71717A]">
+                <span className="text-[11.5px] text-[#88888E]">
                   due {format(new Date(task.due_datetime), 'MMM d')}
                 </span>
               </>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-1 flex-shrink-0">
-          {(task.description || task.todays_goal || task.checklist.length > 0) && (
+
+        {/* Priority badge */}
+        <span
+          className="text-[10px] font-bold px-2 py-[3px] rounded-md flex-shrink-0"
+          style={{ color: pc.color, background: pc.bg }}
+        >
+          {pc.label}
+        </span>
+
+        <div className="flex items-center gap-0.5 flex-shrink-0">
+          {hasDetails && (
             <button
-              onClick={() => setExpanded((e) => !e)}
-              className="p-1.5 rounded-lg hover:bg-white/5 text-[#71717A] hover:text-[#F4F4F5] transition-colors"
+              onClick={() => setExpanded(e => !e)}
+              className="p-1.5 rounded-lg hover:bg-white/[0.06] text-[#88888E] hover:text-[#D4D4D8] transition-colors"
             >
               {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </button>
           )}
-          <button onClick={onEdit} className="p-1.5 rounded-lg hover:bg-white/5 text-[#71717A] hover:text-[#F4F4F5] transition-colors">
-            <Pencil size={14} />
+          <button
+            onClick={onEdit}
+            className="p-1.5 rounded-lg hover:bg-white/[0.06] text-[#88888E] hover:text-[#D4D4D8] transition-colors opacity-0 group-hover:opacity-100"
+          >
+            <Pencil size={13} />
           </button>
-          <button onClick={onDelete} className="p-1.5 rounded-lg hover:bg-[#EF4444]/10 text-[#71717A] hover:text-[#EF4444] transition-colors">
-            <Trash2 size={14} />
+          <button
+            onClick={onDelete}
+            className="p-1.5 rounded-lg hover:bg-[#EF4444]/[0.10] text-[#88888E] hover:text-[#EF4444] transition-colors opacity-0 group-hover:opacity-100"
+          >
+            <Trash2 size={13} />
           </button>
         </div>
       </div>
 
-      {expanded && (
-        <div className="px-4 pb-3 border-t border-white/5 pt-3 space-y-2">
+      {/* Expandable detail */}
+      <div
+        style={{
+          maxHeight: expanded ? 400 : 0,
+          opacity: expanded ? 1 : 0,
+          overflow: 'hidden',
+          transition: 'max-height 0.22s ease, opacity 0.18s ease',
+        }}
+      >
+        <div className="px-5 pb-4 pt-3 border-t border-white/[0.05] space-y-2.5">
           {task.description && (
-            <p className="text-xs text-[#71717A]">{task.description}</p>
+            <p className="text-[12.5px] text-[#88888E] leading-relaxed">{task.description}</p>
           )}
           {task.todays_goal && (
-            <p className="text-xs text-[#7C3AED]">Goal: {task.todays_goal}</p>
+            <div className="flex items-start gap-2">
+              <span className="text-[11px] font-bold text-[#7C3AED] uppercase tracking-wide flex-shrink-0 mt-[1px]">Goal</span>
+              <p className="text-[12.5px] text-[#C4B5FD]">{task.todays_goal}</p>
+            </div>
           )}
           {task.checklist.length > 0 && (
-            <div className="space-y-1">
-              {task.checklist.map((item) => (
+            <div className="space-y-1.5">
+              {task.checklist.map(item => (
                 <div key={item.id} className="flex items-center gap-2">
-                  <div className={`w-3.5 h-3.5 rounded-sm border flex items-center justify-center ${item.done ? 'bg-[#7C3AED] border-[#7C3AED]' : 'border-white/20'}`}>
-                    {item.done && <svg viewBox="0 0 10 8" className="w-2 h-2 fill-white"><path d="M1 4l3 3 5-5" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  <div
+                    className="w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center flex-shrink-0"
+                    style={{
+                      background: item.done ? '#7C3AED' : 'transparent',
+                      borderColor: item.done ? '#7C3AED' : 'rgba(255,255,255,0.15)',
+                    }}
+                  >
+                    {item.done && (
+                      <svg viewBox="0 0 10 8" className="w-2 h-2">
+                        <path d="M1 4l3 3 5-5" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
                   </div>
-                  <span className={`text-xs ${item.done ? 'line-through text-[#52525B]' : 'text-[#A1A1AA]'}`}>{item.text}</span>
+                  <span className={`text-[12px] ${item.done ? 'line-through text-[#52525B]' : 'text-[#A1A1A8]'}`}>
+                    {item.text}
+                  </span>
                 </div>
               ))}
             </div>
           )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
 
+/* ── Page ───────────────────────────────────────────────────── */
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -270,60 +325,84 @@ export default function TasksPage() {
     } catch { toast.error('Delete failed'); }
   };
 
-  const filtered = filter === 'all' ? tasks : tasks.filter((t) => t.category === filter);
-  const cats = ['all', ...Array.from(new Set(tasks.map((t) => t.category)))];
+  const filtered = filter === 'all' ? tasks : tasks.filter(t => t.category === filter);
+  const cats = ['all', ...Array.from(new Set(tasks.map(t => t.category)))];
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-white/8 flex-shrink-0">
+      {/* Header */}
+      <div
+        className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] flex-shrink-0 sticky top-0 z-10"
+        style={{ background: 'rgba(9,9,11,0.85)', backdropFilter: 'blur(12px)' }}
+      >
         <div>
-          <h1 className="text-xl font-bold text-[#F4F4F5]">Tasks</h1>
-          <p className="text-xs text-[#71717A] mt-0.5">{tasks.length} total</p>
+          <h1 className="text-[18px] font-bold text-[#F2F2F2] tracking-tight">Tasks</h1>
+          <p className="text-[12px] text-[#88888E] mt-0.5">{tasks.length} total</p>
         </div>
         <button
           onClick={() => { setEditTask(undefined); setShowModal(true); }}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold gradient-accent text-white hover:opacity-90 transition-opacity"
+          className="btn-primary"
+          style={{ borderRadius: 10, padding: '9px 16px', fontSize: 13 }}
         >
-          <Plus size={15} />
-          New task
+          <Plus size={14} /> New task
         </button>
       </div>
 
       {/* Category filter */}
-      <div className="flex gap-2 px-6 py-3 overflow-x-auto flex-shrink-0 border-b border-white/8">
-        {cats.map((c) => (
-          <button
-            key={c}
-            onClick={() => setFilter(c)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium flex-shrink-0 transition-colors ${
-              filter === c
-                ? 'gradient-accent text-white'
-                : 'bg-[#18181B] border border-white/8 text-[#71717A] hover:text-[#F4F4F5] hover:border-white/20'
-            }`}
-          >
-            {c.charAt(0).toUpperCase() + c.slice(1)}
-          </button>
-        ))}
+      <div className="flex gap-2 px-6 py-3 overflow-x-auto flex-shrink-0 border-b border-white/[0.06] [scrollbar-width:none]">
+        {cats.map(c => {
+          const color = CAT_COLORS[c];
+          const isActive = filter === c;
+          return (
+            <button
+              key={c}
+              onClick={() => setFilter(c)}
+              className="px-3 py-1.5 rounded-lg text-[12px] font-medium flex-shrink-0 transition-all duration-150"
+              style={
+                isActive
+                  ? c === 'all'
+                    ? { background: 'linear-gradient(135deg,#7C3AED,#5B21B6)', color: '#fff' }
+                    : { background: `${color}18`, color, border: `1px solid ${color}30` }
+                  : { background: '#111113', border: '1px solid rgba(255,255,255,0.06)', color: '#88888E' }
+              }
+              onMouseEnter={e => !isActive && (e.currentTarget.style.color = '#D4D4D8', e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)')}
+              onMouseLeave={e => !isActive && (e.currentTarget.style.color = '#88888E', e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)')}
+            >
+              {c.charAt(0).toUpperCase() + c.slice(1)}
+            </button>
+          );
+        })}
       </div>
 
+      {/* List */}
       <div className="flex-1 overflow-y-auto px-6 py-4">
         {loading ? (
-          <div className="flex items-center justify-center h-40">
-            <div className="w-6 h-6 border-2 border-[#7C3AED] border-t-transparent rounded-full animate-spin" />
+          <div className="space-y-2 max-w-2xl">
+            {[...Array(5)].map((_, i) => <TaskSkeleton key={i} />)}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 text-center">
-            <p className="text-sm text-[#71717A]">No tasks found</p>
+          <div className="flex flex-col items-center justify-center h-52 text-center animate-fade-in">
+            <div
+              className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
+              style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.18)' }}
+            >
+              <CheckSquare size={22} className="text-[#7C3AED]/60" />
+            </div>
+            <p className="text-[14px] font-semibold text-[#D4D4D8] mb-1">No tasks found</p>
+            <p className="text-[12.5px] text-[#88888E] mb-4">
+              {filter === 'all' ? 'Add your first task to get started' : `No ${filter} tasks yet`}
+            </p>
             <button
               onClick={() => { setEditTask(undefined); setShowModal(true); }}
-              className="mt-3 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold gradient-accent text-white hover:opacity-90"
+              className="btn-primary"
+              style={{ borderRadius: 10, padding: '9px 18px', fontSize: 13 }}
             >
-              <Plus size={13} /> Add first task
+              <Plus size={13} /> Add task
             </button>
           </div>
         ) : (
-          <div className="space-y-2 max-w-2xl">
-            {filtered.map((t) => (
+          <div className="space-y-2 max-w-2xl stagger">
+            {filtered.map(t => (
               <TaskRow
                 key={t.id}
                 task={t}
