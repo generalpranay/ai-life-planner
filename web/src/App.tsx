@@ -4,7 +4,6 @@ import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
-import SchedulePage from './pages/SchedulePage';
 import TasksPage from './pages/TasksPage';
 import EventsPage from './pages/EventsPage';
 import GoalsPage from './pages/GoalsPage';
@@ -20,7 +19,7 @@ export default function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route element={<Layout />}>
             <Route path="/" element={<DashboardPage />} />
-            <Route path="/schedule" element={<SchedulePage />} />
+            <Route path="/schedule" element={<Navigate to="/" replace />} />
             <Route path="/tasks" element={<TasksPage />} />
             <Route path="/events" element={<EventsPage />} />
             <Route path="/goals" element={<GoalsPage />} />

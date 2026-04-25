@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, CheckSquare, Calendar, Zap, Globe,
+  LayoutDashboard, CheckSquare, Zap, Globe,
   Target, LogOut, Brain, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -8,7 +8,6 @@ import { useAuth } from '../contexts/AuthContext';
 
 const links = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/schedule', icon: Calendar, label: 'Schedule' },
   { to: '/tasks', icon: CheckSquare, label: 'Tasks' },
   { to: '/events', icon: Zap, label: 'Events' },
   { to: '/goals', icon: Target, label: 'Goals' },
