@@ -121,7 +121,10 @@ export default function GoalsPage() {
     if (!result) return;
     setSaving(true);
     try {
-      await api.post('/ai/decompose-goal/save', { goal_id: result.goal_id });
+      await api.post('/ai/decompose-goal/save', {
+        weeks: result.weeks,
+        today: new Date().toISOString().split('T')[0],
+      });
       toast.success('Goal plan saved as tasks!');
     } catch { toast.error('Save failed'); }
     finally { setSaving(false); }

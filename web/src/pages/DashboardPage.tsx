@@ -469,7 +469,7 @@ export default function DashboardPage() {
   const fetchStreak = useCallback(async () => {
     try {
       const { data } = await api.get('/schedule/streak');
-      setStreak(data?.current ?? 0);
+      setStreak(data?.current_streak ?? 0);
     } catch { /* silent */ }
   }, []);
 

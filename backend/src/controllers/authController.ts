@@ -10,7 +10,7 @@ const BCRYPT_ROUNDS = Number(process.env.BCRYPT_ROUNDS) || 12;
 
 export async function register(req: Request, res: Response) {
   try {
-    const { email, password, role } = req.body;
+    const { email, password, name, role } = req.body;
 
     if (!email || !EMAIL_REGEX.test(email)) {
       return res.status(400).json({ message: "Valid email is required" });
@@ -33,11 +33,11 @@ export async function register(req: Request, res: Response) {
 
     const result = await pool.query(
       `
-      INSERT INTO users (email, password_hash, role)
-      VALUES ($1, $2, $3)
-      RETURNING id, email, role, created_at
+      INSERT INTO users (email, password_hash, role, name)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id, email, role, name, created_at
     `,
-      [email.toLowerCase().trim(), hash, role || "student"]
+      [email.toLowerCase().trim(), hash, role || "student", name?.trim() || null]
     );
 
     const user = result.rows[0];
@@ -64,7 +64,7 @@ export async function login(req: Request, res: Response) {
     }
 
     const result = await pool.query(
-      "SELECT id, email, password_hash, role, created_at FROM users WHERE email = $1",
+      "SELECT id, email, password_hash, role, name, created_at FROM users WHERE email = $1",
       [email.toLowerCase().trim()]
     );
 
@@ -85,6 +85,7 @@ export async function login(req: Request, res: Response) {
       { expiresIn: "7d" }
     );
 
+    delete user.password_hash;
     res.json({ token, user });
   } catch (err) {
     console.error("Login error:", err);

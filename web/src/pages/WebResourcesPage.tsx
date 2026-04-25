@@ -3,7 +3,7 @@ import { Plus, Trash2, X, Loader2, Globe, ExternalLink, Link2 } from 'lucide-rea
 import toast from 'react-hot-toast';
 import api from '../lib/api';
 
-interface WebResource { id: number; title: string; url: string; description?: string; category?: string; }
+interface WebResource { id: number; name: string; url: string; description?: string; category?: string; }
 
 function ResourceSkeleton() {
   return (
@@ -32,7 +32,7 @@ function ResourceModal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
     e.preventDefault();
     setLoading(true);
     try {
-      await api.post('/web-resources', { title, url, description: description || undefined, category: category || undefined });
+      await api.post('/web-resources', { name: title, url, description: description || undefined, category: category || undefined });
       toast.success('Resource saved');
       onSaved(); onClose();
     } catch (err: any) {
@@ -179,7 +179,7 @@ export default function WebResourcesPage() {
                     <Link2 size={14} className="text-[#7C3AED]" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[13.5px] font-semibold text-[#F2F2F2] truncate">{r.title}</p>
+                    <p className="text-[13.5px] font-semibold text-[#F2F2F2] truncate">{r.name}</p>
                     <p className="text-[12px] text-[#88888E] truncate">{getDomain(r.url)}</p>
                     {r.description && (
                       <p className="text-[12px] text-[#88888E] mt-1 line-clamp-2 leading-relaxed">{r.description}</p>

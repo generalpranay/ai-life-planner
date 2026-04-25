@@ -35,7 +35,16 @@
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('Fields in user obj:', list\\(d.get\\('user',{}\\).keys\\(\\)\\)\\)\")",
       "Bash(psql -U postgres -d ai_life_planner -c \"\\\\dt events;\")",
       "Bash(curl -s -X POST http://localhost:4000/api/ai/analyze -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjMsImlhdCI6MTc3NzEwNjA4NywiZXhwIjoxNzc3NzEwODg3fQ.rZLRUTn0KIxafnP4qjYnnbQmfWtRANYXkySYy2HpdEI' -H 'Content-Type: application/json')",
-      "Bash(node -e \"const {Pool}=require\\('pg'\\);require\\('dotenv'\\).config\\({path:'backend/.env'}\\);const p=new Pool\\({host:process.env.DB_HOST,port:process.env.DB_PORT,user:process.env.DB_USER,password:process.env.DB_PASSWORD,database:process.env.DB_NAME}\\);p.query\\('SELECT column_name FROM information_schema.columns WHERE table_name=\\\\\\\\'events\\\\\\\\' ORDER BY ordinal_position'\\).then\\(r=>console.log\\(r.rows.map\\(x=>x.column_name\\)\\)\\).catch\\(e=>console.error\\(e\\)\\).finally\\(\\(\\)=>p.end\\(\\)\\)\")"
+      "Bash(node -e \"const {Pool}=require\\('pg'\\);require\\('dotenv'\\).config\\({path:'backend/.env'}\\);const p=new Pool\\({host:process.env.DB_HOST,port:process.env.DB_PORT,user:process.env.DB_USER,password:process.env.DB_PASSWORD,database:process.env.DB_NAME}\\);p.query\\('SELECT column_name FROM information_schema.columns WHERE table_name=\\\\\\\\'events\\\\\\\\' ORDER BY ordinal_position'\\).then\\(r=>console.log\\(r.rows.map\\(x=>x.column_name\\)\\)\\).catch\\(e=>console.error\\(e\\)\\).finally\\(\\(\\)=>p.end\\(\\)\\)\")",
+      "Bash(PGPASSWORD=password psql -U postgres -h localhost -d ai_life_planner -c \"\\\\d users\")",
+      "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe\" -U postgres -h localhost -d ai_life_planner -c \"\\\\d users\" 2>&1 | Select-Object -First 30)",
+      "PowerShell(Get-Command *)",
+      "PowerShell($env:PGPASSWORD = \"password\"; & \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -U postgres -h localhost -d ai_life_planner -c \"\\\\d users\" 2>&1)",
+      "PowerShell($env:PGPASSWORD = \"password\"; & \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -U postgres -h localhost -d ai_life_planner -c \"\\\\d events\" 2>&1)",
+      "Bash(npx ts-node *)",
+      "Bash(netstat -ano)",
+      "PowerShell(Stop-Process *)",
+      "Bash(echo \"Backend starting with PID $!\")"
     ]
   }
 }

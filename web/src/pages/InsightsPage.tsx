@@ -19,6 +19,10 @@ interface OptimizationResult {
   schedule_changes: Array<{ task_title: string; action: string; reason: string }>;
 }
 
+const BUCKET_HOURS: Record<string, number> = {
+  morning: 9, afternoon: 14, evening: 18, night: 21,
+};
+
 const CAT_COLORS: Record<string, string> = {
   work: '#F59E0B', study: '#3B82F6', health: '#10B981', personal: '#8B5CF6',
   routine: '#EC4899', break: '#06B6D4', default: '#71717A',
@@ -61,8 +65,48 @@ export default function InsightsPage() {
   const runAnalysis = useCallback(async () => {
     setLoadingAnalysis(true);
     try {
-      const { data } = await api.post('/ai/analyze');
-      setAnalysis(data);
+      const [{ data }, streakRes] = await Promise.allSettled([
+        api.post('/ai/analyze'),
+        api.get('/schedule/streak'),
+      ]).then(([a, b]) => [
+        a.status === 'fulfilled' ? a.value : { data: null },
+        b.status === 'fulfilled' ? b.value : { data: null },
+      ]);
+
+      const streakData = streakRes?.data;
+      const buckets: any[] = data?.db_stats?.time_bucket_stats ?? [];
+      const cats: any[] = data?.db_stats?.category_stats ?? [];
+
+      const mapped: BehaviorAnalysis = {
+        productivity_score: data?.analysis?.consistency_score ?? 0,
+        insights: data?.analysis?.insights ?? [],
+        recommendations: [
+          ...(data?.analysis?.preferred_task_types?.length
+            ? [`Strong in: ${data.analysis.preferred_task_types.join(', ')}`] : []),
+          ...(data?.analysis?.avoided_task_types?.length
+            ? [`Improve: ${data.analysis.avoided_task_types.join(', ')}`] : []),
+          ...(data?.analysis?.procrastination_patterns ?? []),
+        ],
+        peak_hours: buckets
+          .filter((b) => b.total >= 1)
+          .map((b) => ({
+            hour: BUCKET_HOURS[b.period] ?? 9,
+            avg_completion_rate: (b.success_rate ?? 0) / 100,
+          }))
+          .sort((a, b) => b.avg_completion_rate - a.avg_completion_rate),
+        category_stats: cats.map((c) => ({
+          category: c.category,
+          total_minutes: 0,
+          completed: c.completed ?? 0,
+          total: c.total ?? 0,
+          completion_rate: (c.success_rate ?? 0) / 100,
+        })),
+        streak: {
+          current: streakData?.current_streak ?? 0,
+          longest: streakData?.longest_streak ?? 0,
+        },
+      };
+      setAnalysis(mapped);
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Analysis failed');
     } finally { setLoadingAnalysis(false); }
@@ -72,7 +116,15 @@ export default function InsightsPage() {
     setLoadingOpt(true);
     try {
       const { data } = await api.post('/ai/optimize');
-      setOptimization(data);
+      const opt = data?.optimization ?? data;
+      setOptimization({
+        summary: opt?.optimization_summary ?? opt?.summary ?? 'Optimization complete',
+        schedule_changes: (opt?.adjusted_schedule ?? []).map((c: any) => ({
+          task_title: c.task_name ?? c.task_title ?? 'Task',
+          action: `Move to ${c.suggested_time ?? ''} on ${c.suggested_date ?? ''}`.trim(),
+          reason: c.reason ?? '',
+        })),
+      });
       toast.success('Optimization complete');
     } catch { toast.error('Optimization failed'); }
     finally { setLoadingOpt(false); }
