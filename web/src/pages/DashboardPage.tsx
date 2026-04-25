@@ -20,8 +20,8 @@ interface RiskFlag {
 }
 
 const CAT_COLORS: Record<string, string> = {
-  work: '#F59E0B', study: '#3B82F6', health: '#10B981', exercise: '#10B981',
-  personal: '#8B5CF6', break: '#06B6D4', routine: '#EC4899', default: '#71717A',
+  work: '#f0b429', study: '#60a5fa', health: '#4ade80', exercise: '#4ade80',
+  personal: '#c084fc', break: '#22d3ee', routine: '#f472b6', default: '#6a7a6d',
 };
 const catColor = (t: string) => CAT_COLORS[t.toLowerCase()] ?? CAT_COLORS.default;
 
@@ -32,10 +32,9 @@ function greeting() {
   return 'Good evening';
 }
 
-/* ── Skeleton ─────────────────────────────────────────────────── */
 function BlockSkeleton() {
   return (
-    <div className="bg-[#111113] border border-white/[0.06] rounded-2xl p-4 overflow-hidden">
+    <div className="rounded-2xl p-4 overflow-hidden" style={{ background: '#0f2314', border: '1px solid rgba(255,255,255,0.05)' }}>
       <div className="flex gap-4">
         <div className="skeleton w-0.5 self-stretch rounded-full flex-shrink-0" style={{ minHeight: 64 }} />
         <div className="flex-1 space-y-2.5">
@@ -53,7 +52,6 @@ function BlockSkeleton() {
   );
 }
 
-/* ── Block card ───────────────────────────────────────────────── */
 function BlockCard({ block, onRefresh }: { block: Block; onRefresh: () => void }) {
   const [loading, setLoading] = useState(false);
   const color = catColor(block.block_type);
@@ -63,118 +61,84 @@ function BlockCard({ block, onRefresh }: { block: Block; onRefresh: () => void }
 
   const complete = async () => {
     setLoading(true);
-    try {
-      await api.patch(`/schedule/${block.id}/complete`, { completed: !block.completed });
-      onRefresh();
-    } catch { toast.error('Could not update block'); }
+    try { await api.patch(`/schedule/${block.id}/complete`, { completed: !block.completed }); onRefresh(); }
+    catch { toast.error('Could not update block'); }
     finally { setLoading(false); }
   };
 
   const skip = async () => {
     setLoading(true);
-    try {
-      await api.patch(`/schedule/${block.id}/skip`);
-      onRefresh();
-    } catch { toast.error('Could not skip block'); }
+    try { await api.patch(`/schedule/${block.id}/skip`); onRefresh(); }
+    catch { toast.error('Could not skip block'); }
     finally { setLoading(false); }
   };
 
   return (
     <div
-      className={`card-hover relative bg-[#111113] border rounded-2xl p-4 ${
-        block.completed ? 'opacity-55' : skipped ? 'opacity-35' : ''
-      }`}
-      style={{ borderColor: `${color}22` }}
+      className={`card-hover relative rounded-2xl p-4 ${block.completed ? 'opacity-50' : skipped ? 'opacity-30' : ''}`}
+      style={{ background: '#0f2314', border: `1px solid ${color}20` }}
     >
-      {/* Category bar */}
-      <div
-        className="absolute left-0 top-4 bottom-4 w-[3px] rounded-r-full ml-[3px]"
-        style={{ background: `linear-gradient(to bottom, ${color}, ${color}88)` }}
-      />
+      <div className="absolute left-0 top-4 bottom-4 w-[3px] rounded-r-full ml-[3px]"
+        style={{ background: `linear-gradient(to bottom, ${color}, ${color}66)` }} />
 
       <div className="pl-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1.5">
-              <span
-                className="text-[10px] font-bold tracking-widest uppercase px-2 py-[3px] rounded-md"
-                style={{ color, background: `${color}16` }}
-              >
+              <span className="text-[10px] font-bold tracking-widest uppercase px-2 py-[3px] rounded-md"
+                style={{ color, background: `${color}16` }}>
                 {block.block_type}
               </span>
               {block.completed && (
-                <span className="text-[10px] font-semibold text-[#10B981] bg-[#10B981]/10 px-2 py-[3px] rounded-md">
-                  ✓ Done
-                </span>
+                <span className="text-[10px] font-semibold text-[#4ade80] px-2 py-[3px] rounded-md"
+                  style={{ background: 'rgba(74,222,128,0.10)' }}>✓ Done</span>
               )}
               {skipped && !block.completed && (
-                <span className="text-[10px] font-semibold text-[#88888E] bg-white/[0.06] px-2 py-[3px] rounded-md">
-                  Skipped
-                </span>
+                <span className="text-[10px] font-semibold text-[#6a7a6d] px-2 py-[3px] rounded-md"
+                  style={{ background: 'rgba(255,255,255,0.05)' }}>Skipped</span>
               )}
             </div>
-
-            <p className={`text-[13.5px] font-semibold leading-snug ${block.completed ? 'line-through text-[#52525B]' : 'text-[#F2F2F2]'}`}>
+            <p className={`text-[13.5px] font-semibold leading-snug ${block.completed ? 'line-through text-[#4a5e4e]' : 'text-[#e8e8e0]'}`}>
               {block.task_title || block.block_type}
             </p>
-
             {block.todays_goal && !block.completed && (
-              <p className="text-[12px] text-[#88888E] mt-1 line-clamp-1">
-                {block.todays_goal}
-              </p>
+              <p className="text-[12px] text-[#8a9a8d] mt-1 line-clamp-1">{block.todays_goal}</p>
             )}
           </div>
-
-          <div className="flex items-center gap-1 text-[#88888E] flex-shrink-0 mt-0.5">
+          <div className="flex items-center gap-1 text-[#4a5e4e] flex-shrink-0 mt-0.5">
             <Clock size={11} />
-            <span className="text-[12px]">
-              {format(start, 'h:mm')}–{format(end, 'h:mm a')}
-            </span>
+            <span className="text-[12px]">{format(start, 'h:mm')}–{format(end, 'h:mm a')}</span>
           </div>
         </div>
 
-        {/* Checklist progress */}
         {!!block.checklist_total && (
           <div className="mt-3">
-            <div className="flex items-center justify-between text-[11px] text-[#88888E] mb-1.5">
+            <div className="flex justify-between text-[11px] text-[#8a9a8d] mb-1.5">
               <span>Checklist</span>
               <span className="font-medium">{block.checklist_done}/{block.checklist_total}</span>
             </div>
-            <div className="h-1 bg-[#28282C] rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{
-                  width: `${((block.checklist_done || 0) / block.checklist_total) * 100}%`,
-                  background: color,
-                }}
-              />
+            <div className="h-1 rounded-full overflow-hidden" style={{ background: '#1c3a22' }}>
+              <div className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${((block.checklist_done || 0) / block.checklist_total) * 100}%`, background: color }} />
             </div>
           </div>
         )}
 
-        {/* Actions */}
         <div className="flex gap-2 mt-3">
-          <button
-            onClick={complete}
-            disabled={loading}
+          <button onClick={complete} disabled={loading}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all duration-150 disabled:opacity-50"
-            style={{
-              background: block.completed ? 'rgba(16,185,129,0.06)' : 'rgba(16,185,129,0.10)',
-              color: '#10B981',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(16,185,129,0.18)')}
-            onMouseLeave={e => (e.currentTarget.style.background = block.completed ? 'rgba(16,185,129,0.06)' : 'rgba(16,185,129,0.10)')}
-          >
+            style={{ background: 'rgba(74,222,128,0.10)', color: '#4ade80' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(74,222,128,0.18)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(74,222,128,0.10)')}>
             <CheckCircle2 size={13} />
             {block.completed ? 'Unmark' : 'Mark done'}
           </button>
-
           {!block.completed && (
-            <button
-              onClick={skip}
-              disabled={loading || skipped}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-white/[0.04] text-[#88888E] hover:bg-white/[0.08] hover:text-[#D4D4D8] transition-all duration-150 disabled:opacity-50"
-            >
+            <button onClick={skip} disabled={loading || skipped}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium text-[#6a7a6d] transition-all duration-150 disabled:opacity-50"
+              style={{ background: 'rgba(255,255,255,0.04)' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}>
               <SkipForward size={13} />
               {skipped ? 'Skipped' : 'Skip'}
             </button>
@@ -185,7 +149,6 @@ function BlockCard({ block, onRefresh }: { block: Block; onRefresh: () => void }
   );
 }
 
-/* ── Main page ────────────────────────────────────────────────── */
 export default function DashboardPage() {
   const { user } = useAuth();
   const [selectedDay, setSelectedDay] = useState(new Date());
@@ -219,29 +182,19 @@ export default function DashboardPage() {
     } catch { /* silent */ }
   }, []);
 
-  useEffect(() => {
-    fetchBlocks();
-    fetchRisks();
-    fetchStreak();
-  }, [fetchBlocks, fetchRisks, fetchStreak]);
+  useEffect(() => { fetchBlocks(); fetchRisks(); fetchStreak(); }, [fetchBlocks, fetchRisks, fetchStreak]);
 
   const generateSchedule = async () => {
     const id = toast.loading('Generating schedule…');
-    try {
-      await api.post('/schedule/generate-week');
-      await fetchBlocks();
-      toast.success('Schedule generated!', { id });
-    } catch { toast.error('Failed to generate', { id }); }
+    try { await api.post('/schedule/generate-week'); await fetchBlocks(); toast.success('Schedule generated!', { id }); }
+    catch { toast.error('Failed to generate', { id }); }
   };
 
   const clearSchedule = async () => {
-    if (!confirm('Clear all scheduled blocks? Tasks will be preserved.')) return;
-    const id = toast.loading('Clearing schedule…');
-    try {
-      await api.delete('/schedule/clear');
-      await fetchBlocks();
-      toast.success('Schedule cleared', { id });
-    } catch { toast.error('Failed to clear', { id }); }
+    if (!confirm('Clear all scheduled blocks?')) return;
+    const id = toast.loading('Clearing…');
+    try { await api.delete('/schedule/clear'); await fetchBlocks(); toast.success('Cleared', { id }); }
+    catch { toast.error('Failed', { id }); }
   };
 
   const handleRiskAction = async (blockId: number, action: string) => {
@@ -262,113 +215,103 @@ export default function DashboardPage() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* ── Sticky header ──────────────────────────────────── */}
+      {/* Header */}
       <div
-        className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] flex-shrink-0 sticky top-0 z-10"
-        style={{ background: 'rgba(9,9,11,0.85)', backdropFilter: 'blur(12px)' }}
+        className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0 sticky top-0 z-10"
+        style={{ background: 'rgba(10,26,15,0.90)', backdropFilter: 'blur(14px)', borderColor: 'rgba(212,160,23,0.08)' }}
       >
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-[18px] font-bold text-[#F2F2F2] tracking-tight">
+            <h1 className="text-[18px] font-bold text-[#e8e8e0] tracking-tight">
               {greeting()}{user?.name ? `, ${user.name.split(' ')[0]}` : ''}
             </h1>
             {streak > 0 && (
-              <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-bold text-[#F59E0B] bg-[#F59E0B]/12 border border-[#F59E0B]/22">
-                <Flame size={11} />
-                {streak}
+              <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-bold text-[#d4a017]"
+                style={{ background: 'rgba(212,160,23,0.12)', border: '1px solid rgba(212,160,23,0.22)' }}>
+                <Flame size={11} /> {streak}
               </span>
             )}
             {totalCount > 0 && (
-              <span className="text-[12px] text-[#88888E] font-medium">
+              <span className="text-[12px] text-[#8a9a8d] font-medium">
                 {completedCount}/{totalCount} done
               </span>
             )}
           </div>
-          <p className="text-[12px] text-[#88888E] mt-0.5">{format(new Date(), 'EEEE, MMMM d')}</p>
+          <p className="text-[12px] text-[#8a9a8d] mt-0.5">{format(new Date(), 'EEEE, MMMM d')}</p>
         </div>
-
         <div className="flex items-center gap-1.5">
-          <button
-            onClick={fetchBlocks}
-            className="p-2 rounded-lg hover:bg-white/[0.05] text-[#88888E] hover:text-[#D4D4D8] transition-all duration-150"
-            title="Refresh"
-          >
+          <button onClick={fetchBlocks} className="p-2 rounded-lg text-[#4a5e4e] hover:text-[#d4a017] transition-colors duration-150"
+            style={{ background: 'transparent' }} onMouseEnter={e => (e.currentTarget.style.background='rgba(212,160,23,0.07)')}
+            onMouseLeave={e => (e.currentTarget.style.background='transparent')} title="Refresh">
             <RefreshCw size={15} />
           </button>
-          <button
-            onClick={generateSchedule}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12.5px] font-semibold text-[#7C3AED] bg-[#7C3AED]/[0.10] hover:bg-[#7C3AED]/[0.18] transition-all duration-150"
-          >
-            <Sparkles size={13} />
-            Generate
+          <button onClick={generateSchedule}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12.5px] font-semibold text-[#d4a017] transition-all duration-150"
+            style={{ background: 'rgba(212,160,23,0.10)' }}
+            onMouseEnter={e => (e.currentTarget.style.background='rgba(212,160,23,0.18)')}
+            onMouseLeave={e => (e.currentTarget.style.background='rgba(212,160,23,0.10)')}>
+            <Sparkles size={13} /> Generate
           </button>
-          <button
-            onClick={clearSchedule}
-            className="p-2 rounded-lg hover:bg-[#EF4444]/[0.08] text-[#88888E] hover:text-[#EF4444] transition-all duration-150"
-            title="Clear schedule"
-          >
+          <button onClick={clearSchedule} className="p-2 rounded-lg text-[#4a5e4e] hover:text-[#f87171] transition-colors duration-150"
+            style={{ background: 'transparent' }} onMouseEnter={e => (e.currentTarget.style.background='rgba(248,113,113,0.08)')}
+            onMouseLeave={e => (e.currentTarget.style.background='transparent')} title="Clear">
             <Trash2 size={15} />
           </button>
         </div>
       </div>
 
-      {/* ── Day strip ──────────────────────────────────────── */}
-      <div className="flex gap-2 px-6 py-3 overflow-x-auto flex-shrink-0 border-b border-white/[0.06] [scrollbar-width:none]">
+      {/* Day strip */}
+      <div className="flex gap-2 px-6 py-3 overflow-x-auto flex-shrink-0 border-b [scrollbar-width:none]"
+        style={{ borderColor: 'rgba(212,160,23,0.06)' }}>
         {days.map(d => {
           const sel = isSameDay(d, selectedDay);
           const tod = isToday(d);
           return (
-            <button
-              key={d.toISOString()}
-              onClick={() => setSelectedDay(d)}
-              className={`flex flex-col items-center px-3 py-2 rounded-xl min-w-[52px] flex-shrink-0 transition-all duration-150 ${
+            <button key={d.toISOString()} onClick={() => setSelectedDay(d)}
+              className="flex flex-col items-center px-3 py-2 rounded-xl min-w-[52px] flex-shrink-0 transition-all duration-150"
+              style={
                 sel
-                  ? 'gradient-accent text-white shadow-lg shadow-[#7C3AED]/25'
+                  ? { background: 'linear-gradient(135deg,#d4a017,#b8860b)', color: '#0a1a0f', boxShadow: '0 4px 16px rgba(212,160,23,0.25)' }
                   : tod
-                  ? 'border border-[#7C3AED]/35 text-[#F2F2F2] bg-[#7C3AED]/[0.06]'
-                  : 'border border-white/[0.06] text-[#88888E] hover:border-white/15 hover:text-[#D4D4D8] hover:bg-white/[0.03]'
-              }`}
+                  ? { border: '1px solid rgba(212,160,23,0.35)', color: '#e8e8e0', background: 'rgba(212,160,23,0.07)' }
+                  : { border: '1px solid rgba(255,255,255,0.05)', color: '#6a7a6d', background: 'transparent' }
+              }
+              onMouseEnter={e => !sel && (e.currentTarget.style.borderColor='rgba(212,160,23,0.25)', e.currentTarget.style.color='#c8d4c0')}
+              onMouseLeave={e => !sel && (e.currentTarget.style.borderColor = tod ? 'rgba(212,160,23,0.35)' : 'rgba(255,255,255,0.05)', e.currentTarget.style.color = tod ? '#e8e8e0' : '#6a7a6d')}
             >
-              <span className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
-                {format(d, 'EEE')}
-              </span>
+              <span className="text-[10px] font-semibold uppercase tracking-wide opacity-70">{format(d, 'EEE')}</span>
               <span className="text-[16px] font-bold mt-0.5">{format(d, 'd')}</span>
-              {tod && !sel && (
-                <div className="w-1 h-1 rounded-full bg-[#7C3AED] mt-1" />
-              )}
+              {tod && !sel && <div className="w-1 h-1 rounded-full bg-[#d4a017] mt-1" />}
             </button>
           );
         })}
       </div>
 
-      {/* ── Risk banners ───────────────────────────────────── */}
+      {/* Risk banners */}
       {isToday(selectedDay) && risks.length > 0 && (
-        <div className="px-6 py-3 space-y-2 flex-shrink-0 border-b border-white/[0.06] animate-fade-in">
+        <div className="px-6 py-3 space-y-2 flex-shrink-0 border-b animate-fade-in"
+          style={{ borderColor: 'rgba(212,160,23,0.06)' }}>
           {risks.slice(0, 3).map(r => (
-            <div
-              key={r.block_id}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl border"
-              style={{ background: 'rgba(245,158,11,0.06)', borderColor: 'rgba(245,158,11,0.18)' }}
-            >
-              <AlertTriangle size={14} className="text-[#F59E0B] flex-shrink-0" />
+            <div key={r.block_id} className="flex items-center gap-3 px-4 py-3 rounded-xl border"
+              style={{ background: 'rgba(212,160,23,0.06)', borderColor: 'rgba(212,160,23,0.18)' }}>
+              <AlertTriangle size={14} className="text-[#d4a017] flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-[12.5px] font-semibold text-[#F2F2F2] truncate">{r.task_title}</p>
-                <p className="text-[11.5px] text-[#88888E] truncate">{r.reason}</p>
+                <p className="text-[12.5px] font-semibold text-[#e8e8e0] truncate">{r.task_title}</p>
+                <p className="text-[11.5px] text-[#8a9a8d] truncate">{r.reason}</p>
               </div>
               <div className="flex gap-1.5 flex-shrink-0">
-                <button
-                  onClick={() => handleRiskAction(r.block_id, 'move_to_tomorrow')}
-                  className="text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-colors duration-150"
-                  style={{ background: 'rgba(245,158,11,0.14)', color: '#F59E0B' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(245,158,11,0.24)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'rgba(245,158,11,0.14)')}
-                >
+                <button onClick={() => handleRiskAction(r.block_id, 'move_to_tomorrow')}
+                  className="text-[11px] font-semibold px-2.5 py-1 rounded-lg text-[#d4a017] transition-colors"
+                  style={{ background: 'rgba(212,160,23,0.14)' }}
+                  onMouseEnter={e => (e.currentTarget.style.background='rgba(212,160,23,0.24)')}
+                  onMouseLeave={e => (e.currentTarget.style.background='rgba(212,160,23,0.14)')}>
                   Tomorrow
                 </button>
-                <button
-                  onClick={() => handleRiskAction(r.block_id, 'defer')}
-                  className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-white/[0.05] text-[#88888E] hover:bg-white/[0.09] transition-colors duration-150"
-                >
+                <button onClick={() => handleRiskAction(r.block_id, 'defer')}
+                  className="text-[11px] font-semibold px-2.5 py-1 rounded-lg text-[#6a7a6d] transition-colors"
+                  style={{ background: 'rgba(255,255,255,0.05)' }}
+                  onMouseEnter={e => (e.currentTarget.style.background='rgba(255,255,255,0.09)')}
+                  onMouseLeave={e => (e.currentTarget.style.background='rgba(255,255,255,0.05)')}>
                   Defer
                 </button>
               </div>
@@ -377,24 +320,20 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── Schedule list ──────────────────────────────────── */}
+      {/* Schedule list */}
       <div className="flex-1 overflow-y-auto px-6 py-4">
         {loading ? (
-          <div className="space-y-3 max-w-2xl">
-            {[...Array(4)].map((_, i) => <BlockSkeleton key={i} />)}
-          </div>
+          <div className="space-y-3 max-w-2xl">{[...Array(4)].map((_, i) => <BlockSkeleton key={i} />)}</div>
         ) : dayBlocks.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-56 text-center animate-fade-in">
-            <div
-              className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
-              style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.18)' }}
-            >
-              <CalendarDays size={22} className="text-[#7C3AED]/60" />
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
+              style={{ background: 'rgba(212,160,23,0.08)', border: '1px solid rgba(212,160,23,0.18)' }}>
+              <CalendarDays size={22} className="text-[#d4a017]/60" />
             </div>
-            <p className="text-[14px] font-semibold text-[#D4D4D8] mb-1">
+            <p className="text-[14px] font-semibold text-[#c8d4c0] mb-1">
               {isToday(selectedDay) ? 'Nothing scheduled today' : 'No blocks for this day'}
             </p>
-            <p className="text-[12.5px] text-[#88888E] mb-4">
+            <p className="text-[12.5px] text-[#8a9a8d] mb-4">
               {isToday(selectedDay) ? 'Generate your AI schedule to get started' : 'Select another day or generate a new schedule'}
             </p>
             {isToday(selectedDay) && (
@@ -405,9 +344,7 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div className="space-y-3 max-w-2xl stagger">
-            {dayBlocks.map(b => (
-              <BlockCard key={b.id} block={b} onRefresh={fetchBlocks} />
-            ))}
+            {dayBlocks.map(b => <BlockCard key={b.id} block={b} onRefresh={fetchBlocks} />)}
           </div>
         )}
       </div>

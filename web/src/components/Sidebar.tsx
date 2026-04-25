@@ -13,7 +13,7 @@ const links = [
   { to: '/events', icon: Zap, label: 'Events' },
   { to: '/goals', icon: Target, label: 'Goals' },
   { to: '/insights', icon: Brain, label: 'AI Insights' },
-  { to: '/resources', icon: Globe, label: 'Web Resources' },
+  { to: '/resources', icon: Globe, label: 'Resources' },
 ];
 
 const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
@@ -28,16 +28,26 @@ export default function Sidebar() {
 
   return (
     <aside
-      style={{ width: collapsed ? 60 : 232, transition: `width 0.22s ${EASE}` }}
-      className="flex flex-col h-screen bg-[#111113] border-r border-white/[0.06] flex-shrink-0 overflow-hidden"
+      style={{
+        width: collapsed ? 58 : 228,
+        transition: `width 0.22s ${EASE}`,
+        background: '#091508',
+        borderRight: '1px solid rgba(212,160,23,0.10)',
+      }}
+      className="flex flex-col h-screen flex-shrink-0 overflow-hidden"
     >
       {/* ── Brand ─────────────────────────────────────────── */}
-      <div className="flex items-center gap-3 px-3 h-[60px] border-b border-white/[0.06] flex-shrink-0">
+      <div
+        className="flex items-center gap-3 px-3 h-[60px] flex-shrink-0"
+        style={{ borderBottom: '1px solid rgba(212,160,23,0.08)' }}
+      >
         <div className="relative flex-shrink-0">
-          <div className="w-8 h-8 rounded-xl gradient-accent flex items-center justify-center shadow-lg shadow-[#7C3AED]/25">
-            <Brain size={15} className="text-white" />
+          <div
+            className="w-8 h-8 rounded-xl gradient-accent flex items-center justify-center animate-gold-glow"
+          >
+            <Brain size={15} className="text-[#0a1a0f]" />
           </div>
-          <div className="absolute -top-[2px] -right-[2px] w-[9px] h-[9px] rounded-full bg-[#10B981] border-[2px] border-[#111113]" />
+          <div className="absolute -top-[2px] -right-[2px] w-[9px] h-[9px] rounded-full bg-[#4ade80] border-[2px] border-[#091508]" />
         </div>
 
         <div style={{
@@ -47,27 +57,28 @@ export default function Sidebar() {
           whiteSpace: 'nowrap',
           transition: `opacity 0.16s, max-width 0.22s ${EASE}`,
         }}>
-          <p className="text-[13px] font-bold text-[#F2F2F2] tracking-tight leading-none">
+          <p className="text-[11px] font-bold text-[#d4a017] tracking-[0.12em] uppercase leading-none">
             AI Life Planner
           </p>
-          <p className="text-[10px] text-[#52525B] mt-[2px]">Your intelligent companion</p>
+          <p className="text-[9px] text-[#4a5e4e] mt-[3px] tracking-widest uppercase">Your sanctuary</p>
         </div>
 
         <button
           onClick={() => setCollapsed(c => !c)}
           style={{ marginLeft: collapsed ? 0 : 'auto' }}
-          className="flex-shrink-0 p-1.5 rounded-lg hover:bg-white/[0.05] text-[#52525B] hover:text-[#A1A1A8] transition-colors duration-150"
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className="flex-shrink-0 p-1.5 rounded-lg text-[#4a5e4e] hover:text-[#d4a017] transition-colors duration-150"
+          style2={{ background: 'transparent' }}
+          title={collapsed ? 'Expand' : 'Collapse'}
         >
           {collapsed
-            ? <PanelLeftOpen size={15} />
-            : <PanelLeftClose size={15} />
+            ? <PanelLeftOpen size={14} />
+            : <PanelLeftClose size={14} />
           }
         </button>
       </div>
 
       {/* ── Nav ───────────────────────────────────────────── */}
-      <nav className="flex-1 py-2 overflow-y-auto overflow-x-hidden">
+      <nav className="flex-1 py-3 overflow-y-auto overflow-x-hidden">
         {links.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
@@ -75,28 +86,33 @@ export default function Sidebar() {
             end={to === '/'}
             title={collapsed ? label : undefined}
             className={({ isActive }) =>
-              `relative flex items-center gap-3 mx-2 my-[1px] px-3 py-[9px] rounded-xl text-[13px] font-medium transition-all duration-150 ${
+              `relative flex items-center gap-3 mx-2 my-[2px] px-3 py-[9px] rounded-xl text-[12.5px] font-medium transition-all duration-150 ${
                 isActive
-                  ? 'bg-[#7C3AED]/[0.10] text-[#F2F2F2]'
-                  : 'text-[#88888E] hover:text-[#D4D4D8] hover:bg-white/[0.04]'
+                  ? 'text-[#d4a017]'
+                  : 'text-[#4a5e4e] hover:text-[#8a9a8d]'
               }`
+            }
+            style={({ isActive }) => isActive
+              ? { background: 'rgba(212,160,23,0.09)' }
+              : {}
             }
           >
             {({ isActive }) => (
               <>
-                {/* Left accent bar */}
+                {/* Left gold accent bar */}
                 <span
-                  className="absolute left-0 top-[6px] bottom-[6px] w-[2px] rounded-r-full bg-[#7C3AED]"
+                  className="absolute left-0 top-[7px] bottom-[7px] w-[2px] rounded-r-full"
                   style={{
+                    background: '#d4a017',
                     opacity: isActive ? 1 : 0,
-                    transform: `scaleY(${isActive ? 1 : 0.4})`,
+                    transform: `scaleY(${isActive ? 1 : 0.3})`,
                     transition: 'opacity 0.15s, transform 0.15s',
                     transformOrigin: 'center',
                   }}
                 />
                 <Icon
-                  size={16}
-                  className={`flex-shrink-0 transition-colors duration-150 ${isActive ? 'text-[#7C3AED]' : ''}`}
+                  size={15}
+                  className="flex-shrink-0 transition-colors duration-150"
                 />
                 <span style={{
                   opacity: collapsed ? 0 : 1,
@@ -114,7 +130,7 @@ export default function Sidebar() {
       </nav>
 
       {/* ── User + Logout ─────────────────────────────────── */}
-      <div className="border-t border-white/[0.06] p-2 flex-shrink-0">
+      <div className="p-2 flex-shrink-0" style={{ borderTop: '1px solid rgba(212,160,23,0.08)' }}>
         <div style={{
           opacity: collapsed ? 0 : 1,
           maxHeight: collapsed ? 0 : 56,
@@ -122,14 +138,17 @@ export default function Sidebar() {
           transition: `opacity 0.15s, max-height 0.22s ${EASE}`,
         }}>
           <div className="flex items-center gap-2.5 px-2 py-2 mb-1">
-            <div className="w-7 h-7 rounded-full gradient-accent flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0 shadow-md shadow-[#7C3AED]/20">
+            <div
+              className="w-7 h-7 rounded-full gradient-accent flex items-center justify-center text-[11px] font-bold text-[#0a1a0f] flex-shrink-0"
+              style={{ boxShadow: '0 2px 8px rgba(212,160,23,0.25)' }}
+            >
               {initial}
             </div>
             <div className="overflow-hidden min-w-0">
-              <p className="text-[12px] font-semibold text-[#D4D4D8] truncate leading-tight">
+              <p className="text-[11.5px] font-semibold text-[#c8d4c0] truncate leading-tight">
                 {user?.name || user?.email?.split('@')[0]}
               </p>
-              <p className="text-[10px] text-[#52525B] truncate">{user?.email}</p>
+              <p className="text-[10px] text-[#4a5e4e] truncate">{user?.email}</p>
             </div>
           </div>
         </div>
@@ -137,9 +156,12 @@ export default function Sidebar() {
         <button
           onClick={handleLogout}
           title={collapsed ? 'Logout' : undefined}
-          className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] text-[#88888E] hover:text-[#EF4444] hover:bg-[#EF4444]/[0.08] transition-all duration-150"
+          className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[12.5px] text-[#4a5e4e] hover:text-[#f87171] transition-all duration-150"
+          style={{ background: 'transparent' }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(248,113,113,0.07)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
         >
-          <LogOut size={15} className="flex-shrink-0" />
+          <LogOut size={14} className="flex-shrink-0" />
           <span style={{
             opacity: collapsed ? 0 : 1,
             maxWidth: collapsed ? 0 : 120,
