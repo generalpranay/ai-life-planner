@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, useRef, type FormEvent } from 'react';
 import {
   Plus, Pencil, Trash2, X, Loader2, ChevronDown, ChevronUp,
   CheckSquare, Sparkles, ArrowUpDown, CalendarClock,
@@ -6,12 +6,25 @@ import {
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import api from '../lib/api';
+import { getApiErrorMessage, getApiErrorStatus } from '../lib/errors';
 
 interface ChecklistItem { id: number; task_id: number; text: string; done: boolean; }
 interface Task {
   id: number; title: string; description?: string; category: string;
   due_datetime?: string; estimated_duration_minutes?: number; priority: number;
   todays_goal?: string; is_recurring: boolean; checklist: ChecklistItem[];
+}
+interface TaskPayload {
+  title: string;
+  description?: string;
+  category: string;
+  priority: number;
+  todays_goal?: string;
+  due_datetime?: string;
+  estimated_duration_minutes?: number;
+  start_time?: string;
+  end_time?: string;
+  checklist?: Array<{ text: string }>;
 }
 
 const CATEGORIES = ['work', 'study', 'health', 'personal', 'routine', 'break'];
@@ -151,7 +164,7 @@ function TaskModal({ task, onClose, onSaved }: { task?: Task; onClose: () => voi
       ? `${scheduleDate}T${startTime}`
       : dueDate || undefined;
 
-    const payload: any = {
+    const payload: TaskPayload = {
       title, description: description || undefined, category, priority,
       todays_goal: todaysGoal || undefined,
       due_datetime: effectiveDue,
@@ -176,11 +189,11 @@ function TaskModal({ task, onClose, onSaved }: { task?: Task; onClose: () => voi
         toast.success(scheduledOn ? 'Task created and scheduled!' : 'Task created');
       }
       onSaved(); onClose();
-    } catch (err: any) {
-      if (err.response?.status === 409) {
+    } catch (err) {
+      if (getApiErrorStatus(err) === 409) {
         toast.error('Time conflict — another task is already scheduled then');
       } else {
-        toast.error(err.response?.data?.message || 'Save failed');
+        toast.error(getApiErrorMessage(err, 'Save failed'));
       }
     }
     finally { setLoading(false); }
@@ -487,16 +500,16 @@ export default function TasksPage() {
   const [showSort, setShowSort] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
 
-  const fetchTasks = async () => {
-    setLoading(true);
+  const fetchTasks = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       const { data } = await api.get('/tasks');
       setTasks(Array.isArray(data) ? data : data.tasks ?? []);
     } catch { toast.error('Could not load tasks'); }
     finally { setLoading(false); }
-  };
+  }, []);
 
-  useEffect(() => { fetchTasks(); }, []);
+  useEffect(() => { void fetchTasks(false); }, [fetchTasks]);
 
   // close sort dropdown on outside click
   useEffect(() => {
@@ -509,7 +522,7 @@ export default function TasksPage() {
 
   const deleteTask = async (id: number) => {
     if (!confirm('Delete this task?')) return;
-    try { await api.delete(`/tasks/${id}`); toast.success('Task deleted'); fetchTasks(); }
+    try { await api.delete(`/tasks/${id}`); toast.success('Task deleted'); void fetchTasks(); }
     catch { toast.error('Delete failed'); }
   };
 
@@ -675,7 +688,7 @@ export default function TasksPage() {
               <TaskRow key={t.id} task={t}
                 onEdit={() => { setEditTask(t); setShowModal(true); }}
                 onDelete={() => deleteTask(t.id)}
-                onRefresh={fetchTasks}
+                onRefresh={() => { void fetchTasks(); }}
               />
             ))}
           </div>
@@ -683,7 +696,7 @@ export default function TasksPage() {
       </div>
 
       {showModal && (
-        <TaskModal task={editTask} onClose={() => setShowModal(false)} onSaved={fetchTasks} />
+        <TaskModal task={editTask} onClose={() => setShowModal(false)} onSaved={() => { void fetchTasks(); }} />
       )}
     </div>
   );

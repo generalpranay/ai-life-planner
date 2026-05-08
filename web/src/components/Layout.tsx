@@ -1,6 +1,6 @@
 import { Outlet, Navigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { Toaster } from 'react-hot-toast';
 
 export default function Layout() {
@@ -8,7 +8,7 @@ export default function Layout() {
   if (!token) return <Navigate to="/login" replace />;
 
   return (
-    <div className="flex h-screen w-full overflow-hidden" style={{ background: '#0a1a0f' }}>
+    <div className="flex h-screen w-full overflow-hidden" style={{ background: '#09090B' }}>
       <Sidebar />
       <main className="flex-1 overflow-y-auto">
         <Outlet />
@@ -19,18 +19,18 @@ export default function Layout() {
         toastOptions={{
           duration: 3500,
           style: {
-            background: '#0f2314',
-            color: '#e8e8e0',
+            background: '#18181B',
+            color: '#F4F4F5',
             fontSize: 13,
             fontFamily: 'Inter, system-ui, sans-serif',
-            border: '1px solid rgba(212,160,23,0.18)',
+            border: '1px solid rgba(124,58,237,0.20)',
             borderRadius: 12,
             padding: '10px 14px',
             boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
           },
-          success: { iconTheme: { primary: '#4ade80', secondary: '#0a1a0f' } },
-          error:   { iconTheme: { primary: '#f87171', secondary: '#0a1a0f' } },
-          loading: { iconTheme: { primary: '#d4a017', secondary: '#0a1a0f' } },
+          success: { iconTheme: { primary: '#10B981', secondary: '#09090B' } },
+          error:   { iconTheme: { primary: '#EF4444', secondary: '#09090B' } },
+          loading: { iconTheme: { primary: '#7C3AED', secondary: '#09090B' } },
         }}
       />
     </div>

@@ -1,12 +1,16 @@
 import { Request, Response } from "express";
 import { pool } from "../config/db";
 
+type Queryable = {
+  query: (text: string, params?: any[]) => Promise<any>;
+};
+
 /**
  * Helper: given a task, schedule it starting at `afterTime` (a Date),
  * preserving the task's original duration. Updates the task's start_time/end_time
  * in the DB and inserts a new scheduled_block.
  */
-async function scheduleTaskAfter(task: any, afterTime: Date): Promise<void> {
+async function scheduleTaskAfter(task: any, afterTime: Date, db: Queryable = pool): Promise<void> {
   // Calculate original duration in minutes
   const [origStartH, origStartM] = (task.start_time || '00:00').split(':').map(Number);
   const [origEndH, origEndM]   = (task.end_time   || '01:00').split(':').map(Number);
@@ -19,15 +23,12 @@ async function scheduleTaskAfter(task: any, afterTime: Date): Promise<void> {
   // Persist new times back to the task row
   const newStartStr = `${String(newStart.getUTCHours()).padStart(2,'0')}:${String(newStart.getUTCMinutes()).padStart(2,'0')}`;
   const newEndStr   = `${String(newEnd.getUTCHours()).padStart(2,'0')}:${String(newEnd.getUTCMinutes()).padStart(2,'0')}`;
-  await pool.query('UPDATE tasks SET start_time = $1, end_time = $2 WHERE id = $3', [newStartStr, newEndStr, task.id]);
+  await db.query('UPDATE tasks SET start_time = $1, end_time = $2 WHERE id = $3', [newStartStr, newEndStr, task.id]);
 
   // Remove any stale manual blocks for this task
-  await pool.query('DELETE FROM scheduled_blocks WHERE task_id = $1 AND generated_by_ai = FALSE', [task.id]);
+  await db.query('DELETE FROM scheduled_blocks WHERE task_id = $1 AND generated_by_ai = FALSE', [task.id]);
 
-  // Build the date to use for the block (same date as afterTime)
-  const blockDate = newStart;
-
-  await pool.query(
+  await db.query(
     `INSERT INTO scheduled_blocks
        (user_id, task_id, start_datetime, end_datetime, block_type, generated_by_ai)
      VALUES ($1, $2, $3, $4, $5, FALSE)`,
@@ -38,7 +39,7 @@ async function scheduleTaskAfter(task: any, afterTime: Date): Promise<void> {
 }
 
 // Helper to sync fixed-time tasks to scheduled_blocks
-async function syncToSchedule(task: any) {
+async function syncToSchedule(task: any, db: Queryable = pool) {
   // If no start/end time, we can't schedule it fixed
   if (!task.start_time || !task.end_time) return;
 
@@ -47,7 +48,7 @@ async function syncToSchedule(task: any) {
 
   try {
     // Clear existing blocks for this task
-    await pool.query("DELETE FROM scheduled_blocks WHERE task_id = $1", [task.id]);
+    await db.query("DELETE FROM scheduled_blocks WHERE task_id = $1", [task.id]);
 
     let datesToSchedule: Date[] = [];
 
@@ -105,7 +106,7 @@ async function syncToSchedule(task: any) {
       }
 
       // Check overlap
-      const conflictRes = await pool.query(
+      const conflictRes = await db.query(
         `SELECT b.id, b.task_id, t.priority, t.title 
          FROM scheduled_blocks b
          JOIN tasks t ON b.task_id = t.id
@@ -126,14 +127,14 @@ async function syncToSchedule(task: any) {
         console.warn(`Conflict for task ${task.id} vs ${existingTaskRow.task_id}. Priorities: ${currentPriority} vs ${existingPriority}`);
 
         // Fetch the full existing task row so we can reschedule it properly.
-        const existingFullRes = await pool.query('SELECT * FROM tasks WHERE id = $1', [existingTaskRow.task_id]);
+        const existingFullRes = await db.query('SELECT * FROM tasks WHERE id = $1', [existingTaskRow.task_id]);
         const existingFull = existingFullRes.rows[0];
 
         if (currentPriority > existingPriority) {
           // 1) Auto-Resolution: New task wins — it keeps the requested slot.
           //    The existing (lower-priority) task is bumped to start right after the new task ends.
           console.log(`New task (id=${task.id}) wins. Bumping existing task (id=${existingFull.id}) to after ${endDt.toISOString()}.`);
-          await scheduleTaskAfter(existingFull, endDt);
+          await scheduleTaskAfter(existingFull, endDt, db);
 
         } else if (currentPriority < existingPriority) {
           // 2) Auto-Resolution: Existing task wins — it keeps its slot.
@@ -141,7 +142,7 @@ async function syncToSchedule(task: any) {
           console.log(`Existing task (id=${existingFull.id}) wins. Bumping new task (id=${task.id}) to after existing end.`);
 
           // Find where the existing block ends so we can place the new one after it.
-          const existingBlockRes = await pool.query(
+          const existingBlockRes = await db.query(
             'SELECT end_datetime FROM scheduled_blocks WHERE task_id = $1 ORDER BY end_datetime DESC LIMIT 1',
             [existingFull.id]
           );
@@ -165,7 +166,7 @@ async function syncToSchedule(task: any) {
         }
       }
 
-      await pool.query(
+      await db.query(
         `INSERT INTO scheduled_blocks
           (user_id, task_id, start_datetime, end_datetime, block_type, generated_by_ai)
          VALUES ($1, $2, $3, $4, $5, FALSE)`,
@@ -177,7 +178,7 @@ async function syncToSchedule(task: any) {
   } catch (err: any) {
     if (err.message === 'lower_priority_reschedule' && err.rescheduleAfter) {
       // New task is lower priority — insert it immediately after the winner ends.
-      await scheduleTaskAfter(task, err.rescheduleAfter);
+      await scheduleTaskAfter(task, err.rescheduleAfter, db);
     } else {
       console.error(`Failed to sync task ${task.id} to schedule:`, err);
       throw err;
@@ -413,88 +414,108 @@ export async function resolveConflict(req: Request, res: Response) {
 export async function updateTask(req: Request, res: Response) {
   const userId = (req as any).userId;
   const taskId = Number(req.params.id);
-  const { title, description, category, due_datetime, estimated_duration_minutes, priority, status, todays_goal, is_recurring, recurrence_days, start_time, end_time, date_range_start, date_range_end } =
-    req.body;
+  const body = req.body;
+  const has = (key: string) => Object.prototype.hasOwnProperty.call(body, key);
 
+  if (has("title") && (!body.title || typeof body.title !== "string" || body.title.trim().length === 0)) {
+    return res.status(400).json({ message: "Title is required" });
+  }
+  if (has("title") && body.title.length > 500) {
+    return res.status(400).json({ message: "Title too long (max 500 characters)" });
+  }
+
+  const client = await pool.connect();
   try {
-    const result = await pool.query(
+    await client.query("BEGIN");
+
+    const result = await client.query(
       `
       UPDATE tasks
       SET
-        title = COALESCE($1, title),
-        description = COALESCE($2, description),
-        category = COALESCE($3, category),
-        due_datetime = COALESCE($4, due_datetime),
-        estimated_duration_minutes = COALESCE($5, estimated_duration_minutes),
-        priority = COALESCE($6, priority),
-        status = COALESCE($7, status),
-        todays_goal = COALESCE($8, todays_goal),
-        is_recurring = COALESCE($9, is_recurring),
-        recurrence_days = COALESCE($10, recurrence_days),
-        start_time = COALESCE($11, start_time),
-        end_time = COALESCE($12, end_time),
-        date_range_start = COALESCE($13, date_range_start),
-        date_range_end = COALESCE($14, date_range_end)
-      WHERE id = $15 AND user_id = $16
+        title = CASE WHEN $1 THEN $2 ELSE title END,
+        description = CASE WHEN $3 THEN $4 ELSE description END,
+        category = CASE WHEN $5 THEN $6 ELSE category END,
+        due_datetime = CASE WHEN $7 THEN $8 ELSE due_datetime END,
+        estimated_duration_minutes = CASE WHEN $9 THEN $10 ELSE estimated_duration_minutes END,
+        priority = CASE WHEN $11 THEN $12 ELSE priority END,
+        status = CASE WHEN $13 THEN $14 ELSE status END,
+        todays_goal = CASE WHEN $15 THEN $16 ELSE todays_goal END,
+        is_recurring = CASE WHEN $17 THEN $18 ELSE is_recurring END,
+        recurrence_days = CASE WHEN $19 THEN $20 ELSE recurrence_days END,
+        start_time = CASE WHEN $21 THEN $22 ELSE start_time END,
+        end_time = CASE WHEN $23 THEN $24 ELSE end_time END,
+        date_range_start = CASE WHEN $25 THEN $26 ELSE date_range_start END,
+        date_range_end = CASE WHEN $27 THEN $28 ELSE date_range_end END
+      WHERE id = $29 AND user_id = $30
       RETURNING *
     `,
       [
-        title || null,
-        description || null,
-        category || null,
-        due_datetime || null,
-        estimated_duration_minutes || null,
-        priority || null,
-        status || null,
-        todays_goal || null,
-        is_recurring || null,
-        recurrence_days || null,
-        start_time || null,
-        end_time || null,
-        date_range_start || null,
-        date_range_end || null,
+        has("title"),
+        has("title") ? body.title.trim() : null,
+        has("description"),
+        body.description ?? null,
+        has("category"),
+        body.category ?? null,
+        has("due_datetime"),
+        body.due_datetime ?? null,
+        has("estimated_duration_minutes"),
+        body.estimated_duration_minutes ?? null,
+        has("priority"),
+        body.priority == null ? null : Math.min(5, Math.max(1, body.priority)),
+        has("status"),
+        body.status ?? null,
+        has("todays_goal"),
+        body.todays_goal ?? null,
+        has("is_recurring"),
+        body.is_recurring ?? null,
+        has("recurrence_days"),
+        body.recurrence_days ?? null,
+        has("start_time"),
+        body.start_time ?? null,
+        has("end_time"),
+        body.end_time ?? null,
+        has("date_range_start"),
+        body.date_range_start ?? null,
+        has("date_range_end"),
+        body.date_range_end ?? null,
         taskId,
         userId,
       ]
     );
 
     if (result.rowCount === 0) {
+      await client.query("ROLLBACK");
       return res.status(404).json({ message: "Task not found" });
     }
 
     const updatedTask = result.rows[0];
 
-    // Sync to schedule (re-evaluates if it should be there)
-    // First, if it's no longer fixed or recurring, we might need to remove it.
-    // syncToSchedule handles the "add/update" logic.
-    // We should explicitly remove if it doesn't meet criteria? 
-    // Actually syncToSchedule checks criteria. If criteria NOT met, it does nothing.
-    // So we need to handle the "removal" case if it was previously scheduled but now isn't.
-    // Simplest approach: Always trying to delete first is safe in syncToSchedule? 
-    // No, syncToSchedule only deletes if it proceeds to insert.
-    // Let's modify syncToSchedule or handle it here.
-
-    // Better approach: Always delete existing manual block for this task first.
-    await pool.query("DELETE FROM scheduled_blocks WHERE task_id = $1 AND generated_by_ai = FALSE", [taskId]);
-
-    // Sync to schedule
     try {
-      await syncToSchedule(updatedTask);
+      await client.query("DELETE FROM scheduled_blocks WHERE task_id = $1 AND generated_by_ai = FALSE", [taskId]);
+      await syncToSchedule(updatedTask, client);
+      await client.query("COMMIT");
       res.json(updatedTask);
     } catch (err: any) {
-      // Revert update? A bit complex. 
-      // For now, let's just return error. The task IS updated in DB though.
-      // Ideally we use a transaction.
-      // But to keep it simple, we notify error. The task will exist but not in schedule.
-      if (err.message.includes('Time overlap')) {
-        res.status(409).json({ message: err.message });
+      await client.query("ROLLBACK");
+      if (err.message === "equal_priority_conflict") {
+        res.status(409).json({
+          message: "Time overlap",
+          conflict: true,
+          newTaskId: taskId,
+          existingTaskId: err.conflictData.existingTaskId,
+          existingTaskTitle: err.conflictData.existingTaskTitle,
+        });
       } else {
+        console.error("updateTask schedule sync error:", err);
         res.status(500).json({ message: "Failed to sync schedule" });
       }
     }
   } catch (err) {
+    try { await client.query("ROLLBACK"); } catch { /* ignore */ }
     console.error("updateTask error:", err);
     res.status(500).json({ message: "Server error" });
+  } finally {
+    client.release();
   }
 }
 

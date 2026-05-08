@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Target, Sparkles, Loader2, Save, ChevronDown, ChevronUp, Tag, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
+import { getApiErrorMessage } from '../lib/errors';
 
 interface DailyTask { title: string; category: string; duration_mins: number; energy_type: string; day_of_week: string; }
 interface Week { week: number; milestone: string; focus: string; daily_tasks: DailyTask[]; }
@@ -111,8 +112,8 @@ export default function GoalsPage() {
         avoid_categories: avoid,
       });
       setResult(data);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Decomposition failed');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Decomposition failed'));
       toast.error('Failed to decompose goal');
     } finally { setLoading(false); }
   };

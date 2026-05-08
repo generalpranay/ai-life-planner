@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../hooks/useAuth';
+import { getApiErrorMessage } from '../lib/errors';
 import { Loader2, ArrowRight, Mail, Lock, Fingerprint, Home } from 'lucide-react';
 
 const ACCENTS: [number, number, number][] = [
-  [212, 160, 23],
-  [240, 180, 41],
-  [74, 222, 128],
-  [20, 110, 50],
+  [124, 58, 237],
+  [109, 40, 217],
+  [6, 182, 212],
+  [91, 33, 182],
 ];
 
 function TriangleCanvas() {
@@ -65,7 +66,7 @@ function TriangleCanvas() {
         } else {
           ctx.fillStyle = `rgba(255,255,255,${0.006+tri.seed*0.006})`;
           ctx.fill();
-          ctx.strokeStyle = 'rgba(212,160,23,0.05)';
+          ctx.strokeStyle = 'rgba(124,58,237,0.05)';
         }
         ctx.lineWidth = 0.5;
         ctx.stroke();
@@ -100,26 +101,26 @@ export default function LoginPage() {
     try {
       await login(email, password);
       navigate('/');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Invalid credentials');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Invalid credentials'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 overflow-hidden" style={{ background: '#091508' }}>
+    <div className="fixed inset-0 overflow-hidden" style={{ background: '#09090B' }}>
       <TriangleCanvas />
 
       {/* Version tag */}
-      <div className="absolute top-4 right-5 z-20 text-[10px] text-[#4a5e4e] font-mono tracking-[0.18em] select-none">
+      <div className="absolute top-4 right-5 z-20 text-[10px] text-[#52525B] font-mono tracking-[0.18em] select-none">
         V 2.0
       </div>
 
       {/* Ambient glow */}
       <div className="absolute pointer-events-none" style={{
         width: 700, height: 700, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(212,160,23,0.07) 0%, transparent 70%)',
+        background: 'radial-gradient(circle, rgba(124,58,237,0.08) 0%, transparent 70%)',
         left: '50%', top: '50%', transform: 'translate(-50%,-50%)', zIndex: 1,
       }} />
 
@@ -128,11 +129,11 @@ export default function LoginPage() {
 
         {/* App title above card */}
         <div className="text-center mb-6 animate-fade-slide-up">
-          <h1 className="text-[13px] font-bold tracking-[0.22em] text-[#d4a017] uppercase"
+          <h1 className="text-[13px] font-bold tracking-[0.22em] text-[#7C3AED] uppercase"
             style={{ fontFamily: 'Inter, sans-serif' }}>
             AI Life Planner
           </h1>
-          <p className="text-[9px] tracking-[0.20em] text-[#4a5e4e] uppercase mt-1">
+          <p className="text-[9px] tracking-[0.20em] text-[#52525B] uppercase mt-1">
             Your Intelligent Companion
           </p>
         </div>
@@ -141,25 +142,22 @@ export default function LoginPage() {
         <div
           className="w-full max-w-[400px] rounded-2xl p-7 animate-fade-slide-up shadow-2xl shadow-black/60"
           style={{
-            background: 'rgba(15,35,20,0.88)',
+            background: 'rgba(24,24,27,0.90)',
             backdropFilter: 'blur(18px)',
-            border: '1px solid rgba(212,160,23,0.14)',
+            border: '1px solid rgba(124,58,237,0.18)',
             animationDelay: '50ms',
           }}
         >
           <div className="mb-6">
-            <h2
-              className="text-[22px] font-bold text-[#e8e8e0] mb-1"
-              style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
-            >
+            <h2 className="text-[22px] font-bold text-[#F4F4F5] mb-1">
               Welcome Back
             </h2>
-            <p className="text-[12px] text-[#4a5e4e] tracking-wide">Re-enter your sovereign path</p>
+            <p className="text-[12px] text-[#52525B] tracking-wide">Sign in to your account</p>
           </div>
 
           {error && (
-            <div className="mb-4 px-4 py-3 rounded-xl text-[12.5px] text-[#f87171] flex items-center gap-2"
-              style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.18)' }}>
+            <div className="mb-4 px-4 py-3 rounded-xl text-[12.5px] text-[#EF4444] flex items-center gap-2"
+              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.18)' }}>
               <span>⚠</span> {error}
             </div>
           )}
@@ -167,18 +165,18 @@ export default function LoginPage() {
           <form onSubmit={submit} className="space-y-4">
             {/* Email */}
             <div>
-              <label className="block text-[10px] font-semibold text-[#8a9a8d] uppercase tracking-[0.14em] mb-1.5">
+              <label className="block text-[10px] font-semibold text-[#71717A] uppercase tracking-[0.14em] mb-1.5">
                 Email
               </label>
               <div className="relative">
-                <Mail size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#4a5e4e]" />
+                <Mail size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#52525B]" />
                 <input
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   required
                   autoComplete="email"
-                  placeholder="sovereign@domain.com"
+                  placeholder="you@example.com"
                   className="input-glow"
                   style={{ paddingLeft: '2.25rem' }}
                 />
@@ -188,15 +186,15 @@ export default function LoginPage() {
             {/* Password */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-[10px] font-semibold text-[#8a9a8d] uppercase tracking-[0.14em]">
-                  Access Key
+                <label className="block text-[10px] font-semibold text-[#71717A] uppercase tracking-[0.14em]">
+                  Password
                 </label>
-                <button type="button" className="text-[11px] text-[#d4a017] hover:text-[#f0b429] transition-colors">
-                  Forgotten?
+                <button type="button" className="text-[11px] text-[#7C3AED] hover:text-[#6D28D9] transition-colors">
+                  Forgot?
                 </button>
               </div>
               <div className="relative">
-                <Lock size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#4a5e4e]" />
+                <Lock size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#52525B]" />
                 <input
                   type="password"
                   value={password}
@@ -222,18 +220,18 @@ export default function LoginPage() {
                 <div
                   className="w-4 h-4 rounded-[4px] border flex items-center justify-center transition-all"
                   style={{
-                    background: remember ? '#d4a017' : 'transparent',
-                    borderColor: remember ? '#d4a017' : 'rgba(255,255,255,0.15)',
+                    background: remember ? '#7C3AED' : 'transparent',
+                    borderColor: remember ? '#7C3AED' : 'rgba(255,255,255,0.15)',
                   }}
                 >
                   {remember && (
                     <svg viewBox="0 0 10 8" className="w-2.5 h-2.5">
-                      <path d="M1 4l3 3 5-5" stroke="#0a1a0f" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M1 4l3 3 5-5" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   )}
                 </div>
               </div>
-              <span className="text-[12px] text-[#4a5e4e] group-hover:text-[#8a9a8d] transition-colors">
+              <span className="text-[12px] text-[#52525B] group-hover:text-[#71717A] transition-colors">
                 Remember me on this device
               </span>
             </label>
@@ -255,7 +253,7 @@ export default function LoginPage() {
           {/* Divider */}
           <div className="flex items-center gap-3 my-5">
             <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
-            <span className="text-[10px] tracking-widest text-[#4a5e4e] uppercase">or</span>
+            <span className="text-[10px] tracking-widest text-[#52525B] uppercase">or</span>
             <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
           </div>
 
@@ -270,16 +268,16 @@ export default function LoginPage() {
           </div>
 
           {/* Register link */}
-          <p className="text-center text-[12px] text-[#4a5e4e] mt-5">
+          <p className="text-center text-[12px] text-[#52525B] mt-5">
             New here?{' '}
-            <Link to="/register" className="text-[#d4a017] hover:text-[#f0b429] font-semibold transition-colors">
-              Begin your journey →
+            <Link to="/register" className="text-[#7C3AED] hover:text-[#6D28D9] font-semibold transition-colors">
+              Create an account →
             </Link>
           </p>
         </div>
 
         {/* Footer */}
-        <p className="mt-6 text-[10px] tracking-[0.18em] text-[#4a5e4e] uppercase animate-fade-in" style={{ animationDelay: '200ms' }}>
+        <p className="mt-6 text-[10px] tracking-[0.18em] text-[#52525B] uppercase animate-fade-in" style={{ animationDelay: '200ms' }}>
           Privacy · Terms · Contact
         </p>
       </div>

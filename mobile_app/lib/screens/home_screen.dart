@@ -69,7 +69,8 @@ class _HomeScreenState extends State<HomeScreen>
     _notifOverlay = OverlayEntry(
       builder: (_) => Positioned(
         top: MediaQuery.of(context).padding.top + 8,
-        left: 0, right: 0,
+        left: 0,
+        right: 0,
         child: Material(
           color: Colors.transparent,
           child: UpcomingBlockBanner(
@@ -90,7 +91,12 @@ class _HomeScreenState extends State<HomeScreen>
     setState(() => _risksLoading = true);
     try {
       final flags = await RiskService.predictRisks();
-      if (mounted) setState(() { _riskFlags = flags; _risksLoading = false; });
+      if (mounted) {
+        setState(() {
+          _riskFlags = flags;
+          _risksLoading = false;
+        });
+      }
     } catch (_) {
       if (mounted) setState(() => _risksLoading = false);
     }
@@ -100,10 +106,12 @@ class _HomeScreenState extends State<HomeScreen>
     final ok = await RiskService.applyAction(blockId, action);
     if (!mounted) return;
     if (ok) {
-      final label = action == 'move_to_tomorrow' ? 'Moved to tomorrow' : 'Task deferred';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(label)),
-      );
+      final label = action == 'move_to_tomorrow'
+          ? 'Moved to tomorrow'
+          : 'Task deferred';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(label)));
       if (action == 'move_to_tomorrow') _fetchSchedule();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -124,12 +132,19 @@ class _HomeScreenState extends State<HomeScreen>
     try {
       final blocks = await ScheduleService.fetchSchedule();
       if (!mounted) return;
-      setState(() { _blocks = blocks; _loading = false; _error = false; });
+      setState(() {
+        _blocks = blocks;
+        _loading = false;
+        _error = false;
+      });
       _fetchStreak();
     } catch (e) {
       debugPrint('Error fetching schedule: $e');
       if (!mounted) return;
-      setState(() { _loading = false; _error = true; });
+      setState(() {
+        _loading = false;
+        _error = true;
+      });
     }
   }
 
@@ -151,11 +166,13 @@ class _HomeScreenState extends State<HomeScreen>
       builder: (ctx) => AlertDialog(
         title: const Text('Clear Schedule'),
         content: const Text(
-            'All scheduled blocks will be removed. Your tasks will be preserved.'),
+          'All scheduled blocks will be removed. Your tasks will be preserved.',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
@@ -173,9 +190,9 @@ class _HomeScreenState extends State<HomeScreen>
       await ScheduleService.clearSchedule();
       await _fetchSchedule();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Schedule cleared')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Schedule cleared')));
       }
     } catch (e) {
       if (!mounted) return;
@@ -233,22 +250,32 @@ class _HomeScreenState extends State<HomeScreen>
             if (_streak > 0) ...[
               const SizedBox(width: 12),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.warning.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.warning.withValues(alpha: 0.30)),
+                  border: Border.all(
+                    color: AppColors.warning.withValues(alpha: 0.30),
+                  ),
                 ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Text('🔥', style: TextStyle(fontSize: 13)),
-                  const SizedBox(width: 4),
-                  Text('$_streak',
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('🔥', style: TextStyle(fontSize: 13)),
+                    const SizedBox(width: 4),
+                    Text(
+                      '$_streak',
                       style: GoogleFonts.inter(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                         color: AppColors.warning,
-                      )),
-                ]),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ],
@@ -260,19 +287,31 @@ class _HomeScreenState extends State<HomeScreen>
             indicatorColor: AppColors.accent,
             indicatorWeight: 2,
             indicatorSize: TabBarIndicatorSize.label,
-            labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14),
-            unselectedLabelStyle: GoogleFonts.inter(fontWeight: FontWeight.w400, fontSize: 14),
+            labelStyle: GoogleFonts.inter(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+            unselectedLabelStyle: GoogleFonts.inter(
+              fontWeight: FontWeight.w400,
+              fontSize: 14,
+            ),
             labelColor: AppColors.accent,
-            unselectedLabelColor: isDark ? AppColors.darkMuted : AppColors.lightMuted,
-            tabs: const [Tab(text: 'Daily'), Tab(text: 'Monthly')],
+            unselectedLabelColor: isDark
+                ? AppColors.darkMuted
+                : AppColors.lightMuted,
+            tabs: const [
+              Tab(text: 'Daily'),
+              Tab(text: 'Monthly'),
+            ],
           ),
         ),
         actions: [
           _AppBarIcon(
             icon: isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
             color: isDark ? AppColors.warning : AppColors.darkSubtle,
-            onTap: () => AppTheme.themeNotifier.value =
-                isDark ? ThemeMode.light : ThemeMode.dark,
+            onTap: () => AppTheme.themeNotifier.value = isDark
+                ? ThemeMode.light
+                : ThemeMode.dark,
             tooltip: 'Toggle theme',
           ),
           _AppBarIcon(
@@ -299,11 +338,11 @@ class _HomeScreenState extends State<HomeScreen>
       body: _loading
           ? const _LoadingSpinner()
           : _error
-              ? ErrorRetryView(
-                  message: 'Could not load schedule',
-                  onRetry: _fetchSchedule,
-                )
-              : TabBarView(
+          ? ErrorRetryView(
+              message: 'Could not load schedule',
+              onRetry: _fetchSchedule,
+            )
+          : TabBarView(
               controller: _tabConfig,
               children: [_buildDayView(isDark), _buildMonthView(isDark)],
             ),
@@ -331,13 +370,14 @@ class _HomeScreenState extends State<HomeScreen>
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: () async {
-            final result = await Navigator.push(
-              context,
+            final navigator = Navigator.of(context);
+            final messenger = ScaffoldMessenger.of(context);
+            final result = await navigator.push(
               MaterialPageRoute(builder: (_) => const AddTaskScreen()),
             );
-            if (!context.mounted) return;
+            if (!mounted) return;
             if (result == true) {
-              ScaffoldMessenger.of(context).showSnackBar(
+              messenger.showSnackBar(
                 const SnackBar(content: Text('Task added! Updating schedule…')),
               );
               _generateSchedule();
@@ -350,11 +390,14 @@ class _HomeScreenState extends State<HomeScreen>
               children: [
                 const Icon(Icons.add, color: Colors.white, size: 20),
                 const SizedBox(width: 8),
-                Text('New Task',
-                    style: GoogleFonts.inter(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14)),
+                Text(
+                  'New Task',
+                  style: GoogleFonts.inter(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
               ],
             ),
           ),
@@ -375,41 +418,56 @@ class _HomeScreenState extends State<HomeScreen>
               color: isDark ? AppColors.darkSurface2 : AppColors.lightBg,
               border: Border(
                 bottom: BorderSide(
-                    color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                  color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                ),
               ),
             ),
             child: Row(
               children: [
                 Container(
-                  width: 48, height: 48,
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: const LinearGradient(
                       colors: [AppColors.accent, Color(0xFF5B21B6)],
                     ),
-                    boxShadow: [BoxShadow(
-                      color: AppColors.accent.withValues(alpha: 0.30),
-                      blurRadius: 12, offset: const Offset(0, 4),
-                    )],
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.accent.withValues(alpha: 0.30),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                  child: const Icon(Icons.person, color: Colors.white, size: 24),
+                  child: const Icon(
+                    Icons.person,
+                    color: Colors.white,
+                    size: 24,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('My Account',
+                    Text(
+                      'My Account',
                       style: GoogleFonts.inter(
                         fontWeight: FontWeight.w600,
                         fontSize: 16,
-                        color: isDark ? AppColors.darkText : AppColors.lightText,
-                      )),
-                    Text('online',
+                        color: isDark
+                            ? AppColors.darkText
+                            : AppColors.lightText,
+                      ),
+                    ),
+                    Text(
+                      'online',
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         color: AppColors.success,
                         fontWeight: FontWeight.w500,
-                      )),
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -428,8 +486,10 @@ class _HomeScreenState extends State<HomeScreen>
                   isDark: isDark,
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(context,
-                        MaterialPageRoute(builder: (_) => const EventsScreen()));
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const EventsScreen()),
+                    );
                   },
                 ),
                 _DrawerItem(
@@ -438,8 +498,12 @@ class _HomeScreenState extends State<HomeScreen>
                   isDark: isDark,
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(context,
-                        MaterialPageRoute(builder: (_) => const WebResourcesScreen()));
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const WebResourcesScreen(),
+                      ),
+                    );
                   },
                 ),
                 _DrawerItem(
@@ -450,8 +514,10 @@ class _HomeScreenState extends State<HomeScreen>
                   isDark: isDark,
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(context,
-                        MaterialPageRoute(builder: (_) => const InsightsScreen()));
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const InsightsScreen()),
+                    );
                   },
                 ),
                 _DrawerItem(
@@ -462,8 +528,12 @@ class _HomeScreenState extends State<HomeScreen>
                   isDark: isDark,
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(context,
-                        MaterialPageRoute(builder: (_) => const GoalDecomposeScreen()));
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const GoalDecomposeScreen(),
+                      ),
+                    );
                   },
                 ),
               ],
@@ -476,17 +546,25 @@ class _HomeScreenState extends State<HomeScreen>
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                    color: AppColors.error.withValues(alpha: 0.30)),
+                  color: AppColors.error.withValues(alpha: 0.30),
+                ),
                 color: AppColors.error.withValues(alpha: 0.06),
               ),
               child: ListTile(
                 dense: true,
-                leading: const Icon(Icons.logout_rounded, color: AppColors.error, size: 20),
-                title: Text('Logout',
-                    style: GoogleFonts.inter(
-                        color: AppColors.error,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14)),
+                leading: const Icon(
+                  Icons.logout_rounded,
+                  color: AppColors.error,
+                  size: 20,
+                ),
+                title: Text(
+                  'Logout',
+                  style: GoogleFonts.inter(
+                    color: AppColors.error,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                ),
                 onTap: () {
                   AuthService.logout();
                   Navigator.pushReplacementNamed(context, '/');
@@ -537,22 +615,26 @@ class _HomeScreenState extends State<HomeScreen>
                     color: isSelected
                         ? null
                         : isDark
-                            ? AppColors.darkSurface
-                            : AppColors.lightSurface,
+                        ? AppColors.darkSurface
+                        : AppColors.lightSurface,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: isSelected
                           ? Colors.transparent
                           : isToday
-                              ? AppColors.accent.withValues(alpha: 0.50)
-                              : isDark
-                                  ? AppColors.darkBorder
-                                  : AppColors.lightBorder,
+                          ? AppColors.accent.withValues(alpha: 0.50)
+                          : isDark
+                          ? AppColors.darkBorder
+                          : AppColors.lightBorder,
                     ),
                     boxShadow: isSelected
-                        ? [BoxShadow(
-                            color: AppColors.accent.withValues(alpha: 0.35),
-                            blurRadius: 10, offset: const Offset(0, 4))]
+                        ? [
+                            BoxShadow(
+                              color: AppColors.accent.withValues(alpha: 0.35),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ]
                         : [],
                   ),
                   child: Column(
@@ -563,7 +645,9 @@ class _HomeScreenState extends State<HomeScreen>
                         style: GoogleFonts.inter(
                           color: isSelected
                               ? Colors.white70
-                              : isDark ? AppColors.darkMuted : AppColors.lightMuted,
+                              : isDark
+                              ? AppColors.darkMuted
+                              : AppColors.lightMuted,
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.5,
@@ -577,7 +661,9 @@ class _HomeScreenState extends State<HomeScreen>
                           fontSize: 17,
                           color: isSelected
                               ? Colors.white
-                              : isDark ? AppColors.darkText : AppColors.lightText,
+                              : isDark
+                              ? AppColors.darkText
+                              : AppColors.lightText,
                         ),
                       ),
                     ],
@@ -596,7 +682,9 @@ class _HomeScreenState extends State<HomeScreen>
         Expanded(
           child: RefreshIndicator(
             color: AppColors.accent,
-            backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+            backgroundColor: isDark
+                ? AppColors.darkSurface
+                : AppColors.lightSurface,
             onRefresh: () async {
               await _fetchSchedule();
               await _fetchRisks();
@@ -619,49 +707,68 @@ class _HomeScreenState extends State<HomeScreen>
       focusedDay: _focusedDay,
       selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
       onDaySelected: (selected, focused) {
-        setState(() { _selectedDay = selected; _focusedDay = focused; });
+        setState(() {
+          _selectedDay = selected;
+          _focusedDay = focused;
+        });
       },
       calendarFormat: CalendarFormat.month,
       eventLoader: (day) =>
           _blocks.where((b) => isSameDay(b.startDatetime, day)).toList(),
       calendarStyle: CalendarStyle(
         selectedDecoration: const BoxDecoration(
-            color: AppColors.accent, shape: BoxShape.circle),
+          color: AppColors.accent,
+          shape: BoxShape.circle,
+        ),
         todayDecoration: BoxDecoration(
-            color: AppColors.accent.withValues(alpha: 0.25),
-            shape: BoxShape.circle),
+          color: AppColors.accent.withValues(alpha: 0.25),
+          shape: BoxShape.circle,
+        ),
         todayTextStyle: GoogleFonts.inter(
-            color: AppColors.accent, fontWeight: FontWeight.w600),
+          color: AppColors.accent,
+          fontWeight: FontWeight.w600,
+        ),
         markerDecoration: const BoxDecoration(
-            color: AppColors.cyan, shape: BoxShape.circle),
+          color: AppColors.cyan,
+          shape: BoxShape.circle,
+        ),
         markerSize: 5,
         defaultTextStyle: GoogleFonts.inter(
-            color: isDark ? AppColors.darkText : AppColors.lightText),
+          color: isDark ? AppColors.darkText : AppColors.lightText,
+        ),
         weekendTextStyle: GoogleFonts.inter(
-            color: isDark ? AppColors.darkMuted : AppColors.lightMuted),
+          color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
+        ),
         outsideTextStyle: GoogleFonts.inter(color: AppColors.darkSubtle),
       ),
       headerStyle: HeaderStyle(
         formatButtonVisible: false,
         titleCentered: true,
         titleTextStyle: GoogleFonts.inter(
-            fontWeight: FontWeight.w600,
-            fontSize: 16,
-            color: isDark ? AppColors.darkText : AppColors.lightText),
-        leftChevronIcon: Icon(Icons.chevron_left,
-            color: isDark ? AppColors.darkMuted : AppColors.lightMuted),
-        rightChevronIcon: Icon(Icons.chevron_right,
-            color: isDark ? AppColors.darkMuted : AppColors.lightMuted),
+          fontWeight: FontWeight.w600,
+          fontSize: 16,
+          color: isDark ? AppColors.darkText : AppColors.lightText,
+        ),
+        leftChevronIcon: Icon(
+          Icons.chevron_left,
+          color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
+        ),
+        rightChevronIcon: Icon(
+          Icons.chevron_right,
+          color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
+        ),
       ),
       daysOfWeekStyle: DaysOfWeekStyle(
         weekdayStyle: GoogleFonts.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: isDark ? AppColors.darkMuted : AppColors.lightMuted),
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
+        ),
         weekendStyle: GoogleFonts.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: isDark ? AppColors.darkSubtle : AppColors.lightMuted),
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: isDark ? AppColors.darkSubtle : AppColors.lightMuted,
+        ),
       ),
     );
   }
@@ -675,7 +782,9 @@ class _HomeScreenState extends State<HomeScreen>
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final color = AppTheme.getCategoryColor(
-        block.blockType, Theme.of(context).brightness);
+      block.blockType,
+      Theme.of(context).brightness,
+    );
 
     showModalBottomSheet(
       context: context,
@@ -685,15 +794,19 @@ class _HomeScreenState extends State<HomeScreen>
         builder: (ctx, setModal) => Container(
           decoration: BoxDecoration(
             color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(24)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             border: Border(
               top: BorderSide(
-                  color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+              ),
             ),
           ),
           padding: EdgeInsets.fromLTRB(
-              24, 20, 24, MediaQuery.of(ctx).viewInsets.bottom + 24),
+            24,
+            20,
+            24,
+            MediaQuery.of(ctx).viewInsets.bottom + 24,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -701,9 +814,12 @@ class _HomeScreenState extends State<HomeScreen>
               // Handle
               Center(
                 child: Container(
-                  width: 40, height: 4,
+                  width: 40,
+                  height: 4,
                   decoration: BoxDecoration(
-                    color: isDark ? AppColors.darkBorder2 : AppColors.lightBorder,
+                    color: isDark
+                        ? AppColors.darkBorder2
+                        : AppColors.lightBorder,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -716,26 +832,50 @@ class _HomeScreenState extends State<HomeScreen>
                   if (block.taskId != null)
                     GestureDetector(
                       onTap: () async {
-                        final t = task ?? await TaskService.getTaskById(block.taskId!);
-                        if (t == null || !context.mounted) return;
-                        Navigator.pop(context);
-                        final result = await Navigator.push(context,
-                            MaterialPageRoute(builder: (_) => EditTaskScreen(task: t)));
+                        final navigator = Navigator.of(context);
+                        final t =
+                            task ??
+                            await TaskService.getTaskById(block.taskId!);
+                        if (t == null || !mounted) return;
+                        navigator.pop();
+                        final result = await navigator.push(
+                          MaterialPageRoute(
+                            builder: (_) => EditTaskScreen(task: t),
+                          ),
+                        );
                         if (result != null) _fetchSchedule();
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.accent.withValues(alpha: 0.10),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppColors.accent.withValues(alpha: 0.25)),
+                          border: Border.all(
+                            color: AppColors.accent.withValues(alpha: 0.25),
+                          ),
                         ),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          const Icon(Icons.edit_rounded, size: 13, color: AppColors.accent),
-                          const SizedBox(width: 5),
-                          Text('Edit', style: GoogleFonts.inter(
-                              fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.accent)),
-                        ]),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.edit_rounded,
+                              size: 13,
+                              color: AppColors.accent,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              'Edit',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.accent,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     )
                   else
@@ -744,62 +884,86 @@ class _HomeScreenState extends State<HomeScreen>
               ),
               const SizedBox(height: 12),
               // Block type badge + title
-              Row(children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: color.withValues(alpha: 0.30)),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: color.withValues(alpha: 0.30)),
+                    ),
+                    child: Text(
+                      block.blockType.toUpperCase(),
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: color,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
                   ),
-                  child: Text(
-                    block.blockType.toUpperCase(),
-                    style: GoogleFonts.inter(
-                      fontSize: 11, fontWeight: FontWeight.w700,
-                      color: color, letterSpacing: 0.6),
-                  ),
-                ),
-              ]),
+                ],
+              ),
               const SizedBox(height: 10),
               Text(
                 block.taskTitle ?? block.blockType,
                 style: GoogleFonts.inter(
-                  fontSize: 20, fontWeight: FontWeight.w700,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
                   color: isDark ? AppColors.darkText : AppColors.lightText,
                 ),
               ),
               const SizedBox(height: 6),
-              Row(children: [
-                Icon(Icons.schedule_rounded, size: 14,
-                    color: isDark ? AppColors.darkMuted : AppColors.lightMuted),
-                const SizedBox(width: 6),
-                Text(
-                  '${DateFormat('h:mm a').format(block.startDatetime)} – ${DateFormat('h:mm a').format(block.endDatetime)}',
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
+              Row(
+                children: [
+                  Icon(
+                    Icons.schedule_rounded,
+                    size: 14,
                     color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
                   ),
-                ),
-              ]),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${DateFormat('h:mm a').format(block.startDatetime)} – ${DateFormat('h:mm a').format(block.endDatetime)}',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: isDark
+                          ? AppColors.darkMuted
+                          : AppColors.lightMuted,
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 20),
-              Divider(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+              Divider(
+                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+              ),
               const SizedBox(height: 16),
               if (block.taskDescription != null) ...[
                 _SheetLabel('Description', isDark: isDark),
                 const SizedBox(height: 6),
-                Text(block.taskDescription!,
-                    style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: isDark ? AppColors.darkText : AppColors.lightText)),
+                Text(
+                  block.taskDescription!,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: isDark ? AppColors.darkText : AppColors.lightText,
+                  ),
+                ),
                 const SizedBox(height: 16),
               ],
               if (block.todaysGoal != null) ...[
                 _SheetLabel("Today's goal", isDark: isDark),
                 const SizedBox(height: 6),
-                Text(block.todaysGoal!,
-                    style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: isDark ? AppColors.darkText : AppColors.lightText)),
+                Text(
+                  block.todaysGoal!,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: isDark ? AppColors.darkText : AppColors.lightText,
+                  ),
+                ),
                 const SizedBox(height: 16),
               ],
               if (task != null && task.checklist.isNotEmpty) ...[
@@ -810,8 +974,11 @@ class _HomeScreenState extends State<HomeScreen>
                     Text(
                       '${task.checklist.where((i) => i.done).length}/${task.checklist.length}',
                       style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: isDark ? AppColors.darkMuted : AppColors.lightMuted),
+                        fontSize: 12,
+                        color: isDark
+                            ? AppColors.darkMuted
+                            : AppColors.lightMuted,
+                      ),
                     ),
                   ],
                 ),
@@ -822,7 +989,7 @@ class _HomeScreenState extends State<HomeScreen>
                     value: task.checklist.isEmpty
                         ? 0
                         : task.checklist.where((i) => i.done).length /
-                            task.checklist.length,
+                              task.checklist.length,
                     backgroundColor: isDark
                         ? AppColors.darkSurface2
                         : AppColors.lightBg,
@@ -831,39 +998,54 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
                 ),
                 const SizedBox(height: 12),
-                ...task.checklist.map((item) => CheckboxListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    item.text,
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      decoration: item.done ? TextDecoration.lineThrough : null,
-                      color: item.done
-                          ? isDark ? AppColors.darkMuted : AppColors.lightMuted
-                          : isDark ? AppColors.darkText : AppColors.lightText,
+                ...task.checklist.map(
+                  (item) => CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      item.text,
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        decoration: item.done
+                            ? TextDecoration.lineThrough
+                            : null,
+                        color: item.done
+                            ? isDark
+                                  ? AppColors.darkMuted
+                                  : AppColors.lightMuted
+                            : isDark
+                            ? AppColors.darkText
+                            : AppColors.lightText,
+                      ),
                     ),
-                  ),
-                  value: item.done,
-                  onChanged: (val) async {
-                    if (val != null) {
-                      final ok = await TaskService.updateChecklistItem(item.id, val);
-                      if (ok) {
-                        setModal(() {
-                          final idx = task!.checklist.indexOf(item);
-                          task.checklist[idx] = ChecklistItem(
-                            id: item.id, taskId: item.taskId,
-                            text: item.text, done: val,
-                          );
-                        });
+                    value: item.done,
+                    onChanged: (val) async {
+                      if (val != null) {
+                        final ok = await TaskService.updateChecklistItem(
+                          item.id,
+                          val,
+                        );
+                        if (ok) {
+                          setModal(() {
+                            final idx = task!.checklist.indexOf(item);
+                            task.checklist[idx] = ChecklistItem(
+                              id: item.id,
+                              taskId: item.taskId,
+                              text: item.text,
+                              done: val,
+                            );
+                          });
+                        }
                       }
-                    }
-                  },
-                )),
+                    },
+                  ),
+                ),
               ],
               // ── Action buttons ─────────────────────────────────────────────
               const SizedBox(height: 20),
-              Divider(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+              Divider(
+                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+              ),
               const SizedBox(height: 12),
               _BlockActionButtons(
                 block: block,
@@ -906,8 +1088,12 @@ class _AppBarIcon extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(8),
-          child: Icon(icon, size: 20,
-              color: color ?? (isDark ? AppColors.darkMuted : AppColors.lightMuted)),
+          child: Icon(
+            icon,
+            size: 20,
+            color:
+                color ?? (isDark ? AppColors.darkMuted : AppColors.lightMuted),
+          ),
         ),
       ),
     );
@@ -933,27 +1119,35 @@ class _DrawerItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconColor = accentColor ?? (isDark ? AppColors.darkMuted : AppColors.lightMuted);
+    final iconColor =
+        accentColor ?? (isDark ? AppColors.darkMuted : AppColors.lightMuted);
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
       leading: Container(
-        width: 36, height: 36,
+        width: 36,
+        height: 36,
         decoration: BoxDecoration(
           color: iconColor.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(icon, size: 18, color: iconColor),
       ),
-      title: Text(label,
-          style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: isDark ? AppColors.darkText : AppColors.lightText)),
+      title: Text(
+        label,
+        style: GoogleFonts.inter(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: isDark ? AppColors.darkText : AppColors.lightText,
+        ),
+      ),
       subtitle: subtitle != null
-          ? Text(subtitle!,
+          ? Text(
+              subtitle!,
               style: GoogleFonts.inter(
-                  fontSize: 12,
-                  color: isDark ? AppColors.darkMuted : AppColors.lightMuted))
+                fontSize: 12,
+                color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
+              ),
+            )
           : null,
       onTap: onTap,
     );
@@ -966,9 +1160,12 @@ class _LoadingSpinner extends StatelessWidget {
   @override
   Widget build(BuildContext context) => const Center(
     child: SizedBox(
-      width: 28, height: 28,
+      width: 28,
+      height: 28,
       child: CircularProgressIndicator(
-        color: AppColors.accent, strokeWidth: 2.5),
+        color: AppColors.accent,
+        strokeWidth: 2.5,
+      ),
     ),
   );
 }
@@ -1012,15 +1209,18 @@ class _BlockActionButtonsState extends State<_BlockActionButtons> {
   Future<void> _complete() async {
     setState(() => _loading = true);
     final newVal = !widget.block.completed;
-    final ok = await ScheduleService.completeBlock(widget.block.id, completed: newVal);
+    final ok = await ScheduleService.completeBlock(
+      widget.block.id,
+      completed: newVal,
+    );
     if (!mounted) return;
     if (ok) {
       widget.onActionDone();
     } else {
       setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not update block')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Could not update block')));
     }
   }
 
@@ -1032,9 +1232,9 @@ class _BlockActionButtonsState extends State<_BlockActionButtons> {
       widget.onActionDone();
     } else {
       setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not skip block')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Could not skip block')));
     }
   }
 
@@ -1051,13 +1251,18 @@ class _BlockActionButtonsState extends State<_BlockActionButtons> {
         Expanded(
           child: FilledButton.icon(
             onPressed: _loading ? null : _complete,
-            icon: Icon(done ? Icons.refresh_rounded : Icons.check_rounded, size: 16),
+            icon: Icon(
+              done ? Icons.refresh_rounded : Icons.check_rounded,
+              size: 16,
+            ),
             label: Text(done ? 'Unmark Done' : 'Mark Done'),
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.success,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
         ),
@@ -1067,17 +1272,23 @@ class _BlockActionButtonsState extends State<_BlockActionButtons> {
             child: OutlinedButton.icon(
               onPressed: _loading || skipped ? null : _skip,
               icon: Icon(
-                skipped ? Icons.not_interested_rounded : Icons.skip_next_rounded,
+                skipped
+                    ? Icons.not_interested_rounded
+                    : Icons.skip_next_rounded,
                 size: 16,
               ),
               label: Text(skipped ? 'Skipped' : 'Skip'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: skipped ? Colors.grey : Colors.orange,
                 side: BorderSide(
-                  color: skipped ? Colors.grey.withValues(alpha: 0.4) : Colors.orange,
+                  color: skipped
+                      ? Colors.grey.withValues(alpha: 0.4)
+                      : Colors.orange,
                 ),
                 padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ),

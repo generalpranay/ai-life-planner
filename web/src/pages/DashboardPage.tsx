@@ -7,7 +7,8 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
-import { useAuth } from '../contexts/AuthContext';
+import { getApiErrorMessage } from '../lib/errors';
+import { useAuth } from '../hooks/useAuth';
 
 // ─── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -345,8 +346,8 @@ function AddModal({ prefillDate, prefillHour, onClose, onSaved }: {
       }
       onSaved();
       onClose();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to add');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Failed to add'));
     } finally { setLoading(false); }
   };
 
@@ -450,13 +451,13 @@ export default function DashboardPage() {
   ];
 
   // ── Fetchers ─────────────────────────────────────────────────────────────────
-  const fetchBlocks = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
+  const fetchBlocks = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       const { data } = await api.get('/schedule/week');
       setBlocks(Array.isArray(data) ? data : data.blocks ?? []);
-    } catch { if (!silent) toast.error('Could not load schedule'); }
-    finally { if (!silent) setLoading(false); }
+    } catch { if (showLoading) toast.error('Could not load schedule'); }
+    finally { setLoading(false); }
   }, []);
 
   const fetchRisks = useCallback(async () => {
@@ -475,13 +476,15 @@ export default function DashboardPage() {
 
   // ── Effects ──────────────────────────────────────────────────────────────────
   useEffect(() => {
-    fetchBlocks(); fetchRisks(); fetchStreak();
+    void fetchBlocks(false);
+    void fetchRisks();
+    void fetchStreak();
   }, [fetchBlocks, fetchRisks, fetchStreak]);
 
   // Refresh when the user comes back to this tab
   useEffect(() => {
-    const onFocus = () => fetchBlocks(true);
-    const onVisible = () => { if (document.visibilityState === 'visible') fetchBlocks(true); };
+    const onFocus = () => { void fetchBlocks(false); };
+    const onVisible = () => { if (document.visibilityState === 'visible') void fetchBlocks(false); };
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVisible);
     return () => {

@@ -352,8 +352,8 @@ export default function SchedulePage() {
     ...localEvents.map(localEventToBlock),
   ];
 
-  const fetchWeek = useCallback(async () => {
-    setLoading(true);
+  const fetchWeek = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       const { data } = await api.get('/schedule/week');
       setBlocks(Array.isArray(data) ? data : data.blocks ?? []);
@@ -361,7 +361,7 @@ export default function SchedulePage() {
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchWeek(); }, [fetchWeek]);
+  useEffect(() => { void fetchWeek(false); }, [fetchWeek]);
 
   const handleSaveLocal = (ev: LocalEvent) => {
     const updated = [...localEvents, ev];
@@ -426,7 +426,7 @@ export default function SchedulePage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={fetchWeek} className="p-2 rounded-lg hover:bg-white/5 text-[#71717A] hover:text-[#F4F4F5] transition-colors" title="Refresh">
+          <button onClick={() => { void fetchWeek(); }} className="p-2 rounded-lg hover:bg-white/5 text-[#71717A] hover:text-[#F4F4F5] transition-colors" title="Refresh">
             <RefreshCw size={15} />
           </button>
           <button

@@ -35,9 +35,12 @@ class _WebViewScreenState extends State<WebViewScreen> {
       return Scaffold(
         backgroundColor: isDark ? AppColors.darkBg : AppColors.lightBg,
         body: Center(
-          child: Text('Opening in browser…',
-              style: GoogleFonts.inter(
-                  color: isDark ? AppColors.darkMuted : AppColors.lightMuted)),
+          child: Text(
+            'Opening in browser…',
+            style: GoogleFonts.inter(
+              color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
+            ),
+          ),
         ),
       );
     }
@@ -60,8 +63,6 @@ class _NativeWebView extends StatefulWidget {
 class _NativeWebViewState extends State<_NativeWebView> {
   // ignore: unused_field
   dynamic _controller;
-  // ignore: unused_field
-  bool _loading = true;
 
   @override
   void initState() {
@@ -92,9 +93,12 @@ class _NativeWebViewState extends State<_NativeWebView> {
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
       body: Center(
-        child: Text('Opening…',
-            style: GoogleFonts.inter(
-                color: isDark ? AppColors.darkMuted : AppColors.lightMuted)),
+        child: Text(
+          'Opening…',
+          style: GoogleFonts.inter(
+            color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
+          ),
+        ),
       ),
     );
   }

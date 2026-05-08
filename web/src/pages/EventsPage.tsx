@@ -1,8 +1,9 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Plus, Pencil, Trash2, X, Loader2, Calendar, Clock, MapPin } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import api from '../lib/api';
+import { getApiErrorMessage } from '../lib/errors';
 
 interface Event {
   id: number; title: string; description?: string;
@@ -49,8 +50,8 @@ function EventModal({ event, onClose, onSaved }: { event?: Event; onClose: () =>
       if (event) { await api.put(`/events/${event.id}`, payload); toast.success('Event updated'); }
       else { await api.post('/events', payload); toast.success('Event created'); }
       onSaved(); onClose();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Save failed');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Save failed'));
     } finally { setLoading(false); }
   };
 
@@ -107,20 +108,20 @@ export default function EventsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editEvent, setEditEvent] = useState<Event | undefined>();
 
-  const fetchEvents = async () => {
-    setLoading(true);
+  const fetchEvents = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       const { data } = await api.get('/events');
       setEvents(Array.isArray(data) ? data : data.events ?? []);
     } catch { toast.error('Could not load events'); }
     finally { setLoading(false); }
-  };
+  }, []);
 
-  useEffect(() => { fetchEvents(); }, []);
+  useEffect(() => { void fetchEvents(false); }, [fetchEvents]);
 
   const deleteEvent = async (id: number) => {
     if (!confirm('Delete this event?')) return;
-    try { await api.delete(`/events/${id}`); toast.success('Event deleted'); fetchEvents(); }
+    try { await api.delete(`/events/${id}`); toast.success('Event deleted'); void fetchEvents(); }
     catch { toast.error('Delete failed'); }
   };
 
@@ -221,7 +222,7 @@ export default function EventsPage() {
       </div>
 
       {showModal && (
-        <EventModal event={editEvent} onClose={() => setShowModal(false)} onSaved={fetchEvents} />
+        <EventModal event={editEvent} onClose={() => setShowModal(false)} onSaved={() => { void fetchEvents(); }} />
       )}
     </div>
   );

@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { Brain, RefreshCw, Loader2, TrendingUp, Zap, AlertCircle, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
+import { getApiErrorMessage } from '../lib/errors';
 
 interface CategoryStat { category: string; total_minutes: number; completed: number; total: number; completion_rate: number; }
 interface PeakHour { hour: number; avg_completion_rate: number; }
@@ -18,6 +19,49 @@ interface OptimizationResult {
   summary: string;
   schedule_changes: Array<{ task_title: string; action: string; reason: string }>;
 }
+interface TimeBucketStat {
+  period: string;
+  total: number;
+  success_rate?: number;
+}
+interface DbCategoryStat {
+  category: string;
+  completed?: number;
+  total?: number;
+  success_rate?: number;
+}
+interface AnalysisApiResponse {
+  db_stats?: {
+    time_bucket_stats?: TimeBucketStat[];
+    category_stats?: DbCategoryStat[];
+  };
+  analysis?: {
+    consistency_score?: number;
+    insights?: string[];
+    preferred_task_types?: string[];
+    avoided_task_types?: string[];
+    procrastination_patterns?: string[];
+  };
+}
+interface StreakResponse {
+  current_streak?: number;
+  longest_streak?: number;
+}
+interface OptimizationChange {
+  task_name?: string;
+  task_title?: string;
+  suggested_time?: string;
+  suggested_date?: string;
+  reason?: string;
+}
+interface OptimizationPayload {
+  optimization_summary?: string;
+  summary?: string;
+  adjusted_schedule?: OptimizationChange[];
+}
+type OptimizationApiResponse = OptimizationPayload & {
+  optimization?: OptimizationPayload;
+};
 
 const BUCKET_HOURS: Record<string, number> = {
   morning: 9, afternoon: 14, evening: 18, night: 21,
@@ -65,17 +109,15 @@ export default function InsightsPage() {
   const runAnalysis = useCallback(async () => {
     setLoadingAnalysis(true);
     try {
-      const [{ data }, streakRes] = await Promise.allSettled([
-        api.post('/ai/analyze'),
-        api.get('/schedule/streak'),
-      ]).then(([a, b]) => [
-        a.status === 'fulfilled' ? a.value : { data: null },
-        b.status === 'fulfilled' ? b.value : { data: null },
+      const [analysisResult, streakResult] = await Promise.allSettled([
+        api.post<AnalysisApiResponse>('/ai/analyze'),
+        api.get<StreakResponse>('/schedule/streak'),
       ]);
 
-      const streakData = streakRes?.data;
-      const buckets: any[] = data?.db_stats?.time_bucket_stats ?? [];
-      const cats: any[] = data?.db_stats?.category_stats ?? [];
+      const data = analysisResult.status === 'fulfilled' ? analysisResult.value.data : undefined;
+      const streakData = streakResult.status === 'fulfilled' ? streakResult.value.data : undefined;
+      const buckets = data?.db_stats?.time_bucket_stats ?? [];
+      const cats = data?.db_stats?.category_stats ?? [];
 
       const mapped: BehaviorAnalysis = {
         productivity_score: data?.analysis?.consistency_score ?? 0,
@@ -107,19 +149,19 @@ export default function InsightsPage() {
         },
       };
       setAnalysis(mapped);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Analysis failed');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Analysis failed'));
     } finally { setLoadingAnalysis(false); }
   }, []);
 
   const runOptimization = async () => {
     setLoadingOpt(true);
     try {
-      const { data } = await api.post('/ai/optimize');
+      const { data } = await api.post<OptimizationApiResponse>('/ai/optimize');
       const opt = data?.optimization ?? data;
       setOptimization({
         summary: opt?.optimization_summary ?? opt?.summary ?? 'Optimization complete',
-        schedule_changes: (opt?.adjusted_schedule ?? []).map((c: any) => ({
+        schedule_changes: (opt?.adjusted_schedule ?? []).map((c) => ({
           task_title: c.task_name ?? c.task_title ?? 'Task',
           action: `Move to ${c.suggested_time ?? ''} on ${c.suggested_date ?? ''}`.trim(),
           reason: c.reason ?? '',

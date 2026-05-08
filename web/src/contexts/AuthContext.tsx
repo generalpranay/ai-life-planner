@@ -1,16 +1,6 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import api from '../lib/api';
-
-interface User { id: number; email: string; name?: string; }
-interface AuthCtx {
-  user: User | null;
-  token: string | null;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name?: string) => Promise<void>;
-  logout: () => void;
-}
-
-const Ctx = createContext<AuthCtx>(null!);
+import { AuthContext, type User } from './auth';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
@@ -42,7 +32,5 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
-  return <Ctx.Provider value={{ user, token, login, register, logout }}>{children}</Ctx.Provider>;
+  return <AuthContext.Provider value={{ user, token, login, register, logout }}>{children}</AuthContext.Provider>;
 }
-
-export const useAuth = () => useContext(Ctx);

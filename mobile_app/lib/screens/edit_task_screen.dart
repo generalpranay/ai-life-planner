@@ -63,16 +63,22 @@ class _EditTaskScreenState extends State<EditTaskScreen>
     if (t.startTime != null) {
       final parts = t.startTime!.split(':');
       _startTime = TimeOfDay(
-          hour: int.parse(parts[0]), minute: int.parse(parts[1].split(':')[0]));
+        hour: int.parse(parts[0]),
+        minute: int.parse(parts[1].split(':')[0]),
+      );
     }
     if (t.endTime != null) {
       final parts = t.endTime!.split(':');
       _endTime = TimeOfDay(
-          hour: int.parse(parts[0]), minute: int.parse(parts[1].split(':')[0]));
+        hour: int.parse(parts[0]),
+        minute: int.parse(parts[1].split(':')[0]),
+      );
     }
 
     _animCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 400));
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
     _fadeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
     _animCtrl.forward();
   }
@@ -99,7 +105,9 @@ class _EditTaskScreenState extends State<EditTaskScreen>
 
   Future<void> _pickTime(bool isStart) async {
     final t = await showTimePicker(
-        context: context, initialTime: TimeOfDay.now());
+      context: context,
+      initialTime: TimeOfDay.now(),
+    );
     if (t != null) setState(() => isStart ? _startTime = t : _endTime = t);
   }
 
@@ -127,8 +135,9 @@ class _EditTaskScreenState extends State<EditTaskScreen>
 
   Future<void> _save() async {
     if (_titleCtrl.text.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Title is required')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Title is required')));
       return;
     }
     setState(() => _loading = true);
@@ -160,12 +169,14 @@ class _EditTaskScreenState extends State<EditTaskScreen>
 
     if (!mounted) return;
     if (ok) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Task updated')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Task updated')));
       Navigator.pop(context, true);
     } else {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Failed to update task')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to update task')));
     }
   }
 
@@ -177,8 +188,9 @@ class _EditTaskScreenState extends State<EditTaskScreen>
         content: Text('Delete "${widget.task.title}"? This cannot be undone.'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
@@ -196,8 +208,9 @@ class _EditTaskScreenState extends State<EditTaskScreen>
     if (ok) {
       Navigator.pop(context, 'deleted');
     } else {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Failed to delete task')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to delete task')));
     }
   }
 
@@ -214,14 +227,19 @@ class _EditTaskScreenState extends State<EditTaskScreen>
         leading: InkWell(
           borderRadius: BorderRadius.circular(8),
           onTap: () => Navigator.pop(context),
-          child: Icon(Icons.arrow_back,
-              color: isDark ? AppColors.darkText : AppColors.lightText),
+          child: Icon(
+            Icons.arrow_back,
+            color: isDark ? AppColors.darkText : AppColors.lightText,
+          ),
         ),
-        title: Text('Edit Task',
-            style: GoogleFonts.inter(
-                fontWeight: FontWeight.w700,
-                fontSize: 18,
-                color: isDark ? AppColors.darkText : AppColors.lightText)),
+        title: Text(
+          'Edit Task',
+          style: GoogleFonts.inter(
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+            color: isDark ? AppColors.darkText : AppColors.lightText,
+          ),
+        ),
         actions: [
           IconButton(
             icon: _deleting
@@ -229,9 +247,14 @@ class _EditTaskScreenState extends State<EditTaskScreen>
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(
-                        color: AppColors.error, strokeWidth: 2))
-                : const Icon(Icons.delete_outline_rounded,
-                    color: AppColors.error),
+                      color: AppColors.error,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Icon(
+                    Icons.delete_outline_rounded,
+                    color: AppColors.error,
+                  ),
             onPressed: _deleting ? null : _delete,
             tooltip: 'Delete task',
           ),
@@ -247,23 +270,38 @@ class _EditTaskScreenState extends State<EditTaskScreen>
               _Section(
                 label: 'DETAILS',
                 isDark: isDark,
-                child: Column(children: [
-                  _ThemedField(controller: _titleCtrl, label: 'Task title',
-                      icon: Icons.title_rounded, isDark: isDark),
-                  const SizedBox(height: 12),
-                  _ThemedField(controller: _descCtrl, label: 'Description',
-                      icon: Icons.notes_rounded, maxLines: 3, isDark: isDark),
-                  const SizedBox(height: 12),
-                  _ThemedField(controller: _goalCtrl,
+                child: Column(
+                  children: [
+                    _ThemedField(
+                      controller: _titleCtrl,
+                      label: 'Task title',
+                      icon: Icons.title_rounded,
+                      isDark: isDark,
+                    ),
+                    const SizedBox(height: 12),
+                    _ThemedField(
+                      controller: _descCtrl,
+                      label: 'Description',
+                      icon: Icons.notes_rounded,
+                      maxLines: 3,
+                      isDark: isDark,
+                    ),
+                    const SizedBox(height: 12),
+                    _ThemedField(
+                      controller: _goalCtrl,
                       label: "Today's goal (optional)",
-                      icon: Icons.flag_rounded, isDark: isDark),
-                ]),
+                      icon: Icons.flag_rounded,
+                      isDark: isDark,
+                    ),
+                  ],
+                ),
               ),
               _Section(
                 label: 'CATEGORY',
                 isDark: isDark,
                 child: Wrap(
-                  spacing: 8, runSpacing: 8,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: _categories.map((cat) {
                     final selected = _category == cat.$1;
                     return GestureDetector(
@@ -271,32 +309,52 @@ class _EditTaskScreenState extends State<EditTaskScreen>
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 180),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 10),
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
                         decoration: BoxDecoration(
                           color: selected
                               ? cat.$3.withValues(alpha: 0.18)
-                              : isDark ? AppColors.darkSurface2 : AppColors.lightBg,
+                              : isDark
+                              ? AppColors.darkSurface2
+                              : AppColors.lightBg,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                             color: selected
                                 ? cat.$3.withValues(alpha: 0.50)
-                                : isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                                : isDark
+                                ? AppColors.darkBorder
+                                : AppColors.lightBorder,
                             width: selected ? 1.5 : 1,
                           ),
                         ),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(cat.$2, size: 16,
-                              color: selected ? cat.$3
-                                  : isDark ? AppColors.darkMuted : AppColors.lightMuted),
-                          const SizedBox(width: 6),
-                          Text(
-                            cat.$1[0].toUpperCase() + cat.$1.substring(1),
-                            style: GoogleFonts.inter(fontSize: 13,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              cat.$2,
+                              size: 16,
+                              color: selected
+                                  ? cat.$3
+                                  : isDark
+                                  ? AppColors.darkMuted
+                                  : AppColors.lightMuted,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              cat.$1[0].toUpperCase() + cat.$1.substring(1),
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
                                 fontWeight: FontWeight.w500,
-                                color: selected ? cat.$3
-                                    : isDark ? AppColors.darkText : AppColors.lightText),
-                          ),
-                        ]),
+                                color: selected
+                                    ? cat.$3
+                                    : isDark
+                                    ? AppColors.darkText
+                                    : AppColors.lightText,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   }).toList(),
@@ -305,98 +363,186 @@ class _EditTaskScreenState extends State<EditTaskScreen>
               _Section(
                 label: 'SCHEDULE',
                 isDark: isDark,
-                child: Column(children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    decoration: BoxDecoration(
-                      color: _isRecurring
-                          ? AppColors.accent.withValues(alpha: 0.08)
-                          : isDark ? AppColors.darkSurface2 : AppColors.lightBg,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
+                child: Column(
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      decoration: BoxDecoration(
                         color: _isRecurring
-                            ? AppColors.accent.withValues(alpha: 0.35)
-                            : isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                            ? AppColors.accent.withValues(alpha: 0.08)
+                            : isDark
+                            ? AppColors.darkSurface2
+                            : AppColors.lightBg,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _isRecurring
+                              ? AppColors.accent.withValues(alpha: 0.35)
+                              : isDark
+                              ? AppColors.darkBorder
+                              : AppColors.lightBorder,
+                        ),
+                      ),
+                      child: SwitchListTile(
+                        dense: true,
+                        title: Text(
+                          'Recurring task',
+                          style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            color: isDark
+                                ? AppColors.darkText
+                                : AppColors.lightText,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Repeats every week',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: isDark
+                                ? AppColors.darkMuted
+                                : AppColors.lightMuted,
+                          ),
+                        ),
+                        activeThumbColor: AppColors.accent,
+                        value: _isRecurring,
+                        onChanged: (v) => setState(() => _isRecurring = v),
                       ),
                     ),
-                    child: SwitchListTile(
-                      dense: true,
-                      title: Text('Recurring task',
-                          style: GoogleFonts.inter(fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                              color: isDark ? AppColors.darkText : AppColors.lightText)),
-                      subtitle: Text('Repeats every week',
-                          style: GoogleFonts.inter(fontSize: 12,
-                              color: isDark ? AppColors.darkMuted : AppColors.lightMuted)),
-                      activeColor: AppColors.accent,
-                      value: _isRecurring,
-                      onChanged: (v) => setState(() => _isRecurring = v),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (_isRecurring) ...[
-                    Align(alignment: Alignment.centerLeft,
-                      child: Text('Repeats on',
-                          style: GoogleFonts.inter(fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
-                              letterSpacing: 0.3)),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(spacing: 6,
-                      children: _days.map((day) {
-                        final sel = _recurrenceDays.contains(day);
-                        return GestureDetector(
-                          onTap: () => setState(() => sel
-                              ? _recurrenceDays.remove(day)
-                              : _recurrenceDays.add(day)),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 160),
-                            width: 40, height: 40,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: sel ? AppColors.accent
-                                  : isDark ? AppColors.darkSurface2 : AppColors.lightBg,
-                              border: Border.all(
-                                  color: sel ? AppColors.accent
-                                      : isDark ? AppColors.darkBorder : AppColors.lightBorder),
-                            ),
-                            child: Center(child: Text(day[0],
-                                style: GoogleFonts.inter(fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: sel ? Colors.white
-                                        : isDark ? AppColors.darkMuted : AppColors.lightMuted))),
-                          ),
-                        );
-                      }).toList(),
-                    ),
                     const SizedBox(height: 12),
-                    Row(children: [
-                      Expanded(child: _DateTile(icon: Icons.calendar_today_rounded,
-                          label: _rangeStart == null ? 'Start date' : DateFormat('MMM d').format(_rangeStart!),
-                          onTap: _pickRangeStart, isDark: isDark, active: _rangeStart != null)),
-                      const SizedBox(width: 8),
-                      Expanded(child: _DateTile(icon: Icons.event_rounded,
-                          label: _rangeEnd == null ? 'End date' : DateFormat('MMM d').format(_rangeEnd!),
-                          onTap: _pickRangeEnd, isDark: isDark, active: _rangeEnd != null)),
-                    ]),
-                  ] else ...[
-                    _DateTile(icon: Icons.calendar_today_rounded,
-                        label: _selectedDate == null ? 'Pick date'
-                            : DateFormat('EEE, MMM d, yyyy').format(_selectedDate!),
-                        onTap: _pickDate, isDark: isDark, active: _selectedDate != null),
+                    if (_isRecurring) ...[
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Repeats on',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isDark
+                                ? AppColors.darkMuted
+                                : AppColors.lightMuted,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        children: _days.map((day) {
+                          final sel = _recurrenceDays.contains(day);
+                          return GestureDetector(
+                            onTap: () => setState(
+                              () => sel
+                                  ? _recurrenceDays.remove(day)
+                                  : _recurrenceDays.add(day),
+                            ),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 160),
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: sel
+                                    ? AppColors.accent
+                                    : isDark
+                                    ? AppColors.darkSurface2
+                                    : AppColors.lightBg,
+                                border: Border.all(
+                                  color: sel
+                                      ? AppColors.accent
+                                      : isDark
+                                      ? AppColors.darkBorder
+                                      : AppColors.lightBorder,
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  day[0],
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: sel
+                                        ? Colors.white
+                                        : isDark
+                                        ? AppColors.darkMuted
+                                        : AppColors.lightMuted,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _DateTile(
+                              icon: Icons.calendar_today_rounded,
+                              label: _rangeStart == null
+                                  ? 'Start date'
+                                  : DateFormat('MMM d').format(_rangeStart!),
+                              onTap: _pickRangeStart,
+                              isDark: isDark,
+                              active: _rangeStart != null,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _DateTile(
+                              icon: Icons.event_rounded,
+                              label: _rangeEnd == null
+                                  ? 'End date'
+                                  : DateFormat('MMM d').format(_rangeEnd!),
+                              onTap: _pickRangeEnd,
+                              isDark: isDark,
+                              active: _rangeEnd != null,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      _DateTile(
+                        icon: Icons.calendar_today_rounded,
+                        label: _selectedDate == null
+                            ? 'Pick date'
+                            : DateFormat(
+                                'EEE, MMM d, yyyy',
+                              ).format(_selectedDate!),
+                        onTap: _pickDate,
+                        isDark: isDark,
+                        active: _selectedDate != null,
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _DateTile(
+                            icon: Icons.schedule_rounded,
+                            label: _startTime == null
+                                ? 'Start time'
+                                : _startTime!.format(context),
+                            onTap: () => _pickTime(true),
+                            isDark: isDark,
+                            active: _startTime != null,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _DateTile(
+                            icon: Icons.schedule_rounded,
+                            label: _endTime == null
+                                ? 'End time'
+                                : _endTime!.format(context),
+                            onTap: () => _pickTime(false),
+                            isDark: isDark,
+                            active: _endTime != null,
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
-                  const SizedBox(height: 8),
-                  Row(children: [
-                    Expanded(child: _DateTile(icon: Icons.schedule_rounded,
-                        label: _startTime == null ? 'Start time' : _startTime!.format(context),
-                        onTap: () => _pickTime(true), isDark: isDark, active: _startTime != null)),
-                    const SizedBox(width: 8),
-                    Expanded(child: _DateTile(icon: Icons.schedule_rounded,
-                        label: _endTime == null ? 'End time' : _endTime!.format(context),
-                        onTap: () => _pickTime(false), isDark: isDark, active: _endTime != null)),
-                  ]),
-                ]),
+                ),
               ),
               _Section(
                 label: 'PRIORITY',
@@ -405,8 +551,13 @@ class _EditTaskScreenState extends State<EditTaskScreen>
                   children: List.generate(5, (i) {
                     final level = i + 1;
                     final sel = _priority == level;
-                    final colors = [AppColors.catHealth, AppColors.catStudy,
-                      AppColors.warning, AppColors.catRoutine, AppColors.error];
+                    final colors = [
+                      AppColors.catHealth,
+                      AppColors.catStudy,
+                      AppColors.warning,
+                      AppColors.catRoutine,
+                      AppColors.error,
+                    ];
                     final labels = ['Low', '', 'Mid', '', 'High'];
                     return Expanded(
                       child: GestureDetector(
@@ -416,28 +567,50 @@ class _EditTaskScreenState extends State<EditTaskScreen>
                           margin: EdgeInsets.only(right: i < 4 ? 6 : 0),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           decoration: BoxDecoration(
-                            color: sel ? colors[i].withValues(alpha: 0.18)
-                                : isDark ? AppColors.darkSurface2 : AppColors.lightBg,
+                            color: sel
+                                ? colors[i].withValues(alpha: 0.18)
+                                : isDark
+                                ? AppColors.darkSurface2
+                                : AppColors.lightBg,
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
-                              color: sel ? colors[i].withValues(alpha: 0.50)
-                                  : isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                              color: sel
+                                  ? colors[i].withValues(alpha: 0.50)
+                                  : isDark
+                                  ? AppColors.darkBorder
+                                  : AppColors.lightBorder,
                               width: sel ? 1.5 : 1,
                             ),
                           ),
-                          child: Column(children: [
-                            Text('$level',
-                                style: GoogleFonts.inter(fontWeight: FontWeight.w700,
-                                    fontSize: 16,
-                                    color: sel ? colors[i]
-                                        : isDark ? AppColors.darkMuted : AppColors.lightMuted)),
-                            if (labels[i].isNotEmpty)
-                              Text(labels[i],
-                                  style: GoogleFonts.inter(fontSize: 10,
-                                      fontWeight: FontWeight.w500,
-                                      color: sel ? colors[i]
-                                          : isDark ? AppColors.darkSubtle : AppColors.lightMuted)),
-                          ]),
+                          child: Column(
+                            children: [
+                              Text(
+                                '$level',
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 16,
+                                  color: sel
+                                      ? colors[i]
+                                      : isDark
+                                      ? AppColors.darkMuted
+                                      : AppColors.lightMuted,
+                                ),
+                              ),
+                              if (labels[i].isNotEmpty)
+                                Text(
+                                  labels[i],
+                                  style: GoogleFonts.inter(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w500,
+                                    color: sel
+                                        ? colors[i]
+                                        : isDark
+                                        ? AppColors.darkSubtle
+                                        : AppColors.lightMuted,
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
                     );
@@ -445,8 +618,11 @@ class _EditTaskScreenState extends State<EditTaskScreen>
                 ),
               ),
               const SizedBox(height: 8),
-              _GradientButton(onPressed: _loading ? null : _save,
-                  loading: _loading, label: 'Save changes'),
+              _GradientButton(
+                onPressed: _loading ? null : _save,
+                loading: _loading,
+                label: 'Save changes',
+              ),
             ],
           ),
         ),
@@ -461,28 +637,43 @@ class _Section extends StatelessWidget {
   final String label;
   final bool isDark;
   final Widget child;
-  const _Section({required this.label, required this.isDark, required this.child});
+  const _Section({
+    required this.label,
+    required this.isDark,
+    required this.child,
+  });
 
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(bottom: 16),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Padding(
-        padding: const EdgeInsets.only(left: 2, bottom: 10),
-        child: Text(label, style: GoogleFonts.inter(fontSize: 11,
-            fontWeight: FontWeight.w700, letterSpacing: 0.8,
-            color: isDark ? AppColors.darkMuted : AppColors.lightMuted)),
-      ),
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 10),
+          child: Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+              color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
+            ),
+          ),
         ),
-        child: child,
-      ),
-    ]),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+            ),
+          ),
+          child: child,
+        ),
+      ],
+    ),
   );
 }
 
@@ -492,15 +683,26 @@ class _ThemedField extends StatelessWidget {
   final IconData icon;
   final int maxLines;
   final bool isDark;
-  const _ThemedField({required this.controller, required this.label,
-      required this.icon, required this.isDark, this.maxLines = 1});
+  const _ThemedField({
+    required this.controller,
+    required this.label,
+    required this.icon,
+    required this.isDark,
+    this.maxLines = 1,
+  });
 
   @override
   Widget build(BuildContext context) => TextField(
-    controller: controller, maxLines: maxLines,
-    style: GoogleFonts.inter(fontSize: 14,
-        color: isDark ? AppColors.darkText : AppColors.lightText),
-    decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon, size: 18)),
+    controller: controller,
+    maxLines: maxLines,
+    style: GoogleFonts.inter(
+      fontSize: 14,
+      color: isDark ? AppColors.darkText : AppColors.lightText,
+    ),
+    decoration: InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, size: 18),
+    ),
   );
 }
 
@@ -510,8 +712,13 @@ class _DateTile extends StatelessWidget {
   final VoidCallback onTap;
   final bool isDark;
   final bool active;
-  const _DateTile({required this.icon, required this.label,
-      required this.onTap, required this.isDark, this.active = false});
+  const _DateTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    required this.isDark,
+    this.active = false,
+  });
 
   @override
   Widget build(BuildContext context) => GestureDetector(
@@ -519,26 +726,49 @@ class _DateTile extends StatelessWidget {
     child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
-        color: active ? AppColors.accent.withValues(alpha: 0.08)
-            : isDark ? AppColors.darkSurface2 : AppColors.lightBg,
+        color: active
+            ? AppColors.accent.withValues(alpha: 0.08)
+            : isDark
+            ? AppColors.darkSurface2
+            : AppColors.lightBg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: active ? AppColors.accent.withValues(alpha: 0.35)
-              : isDark ? AppColors.darkBorder : AppColors.lightBorder,
+          color: active
+              ? AppColors.accent.withValues(alpha: 0.35)
+              : isDark
+              ? AppColors.darkBorder
+              : AppColors.lightBorder,
         ),
       ),
-      child: Row(children: [
-        Icon(icon, size: 16,
-            color: active ? AppColors.accent
-                : isDark ? AppColors.darkMuted : AppColors.lightMuted),
-        const SizedBox(width: 8),
-        Expanded(child: Text(label,
-          style: GoogleFonts.inter(fontSize: 13,
-              fontWeight: active ? FontWeight.w500 : FontWeight.w400,
-              color: active ? (isDark ? AppColors.darkText : AppColors.lightText)
-                  : isDark ? AppColors.darkMuted : AppColors.lightMuted),
-          overflow: TextOverflow.ellipsis)),
-      ]),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: active
+                ? AppColors.accent
+                : isDark
+                ? AppColors.darkMuted
+                : AppColors.lightMuted,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: active ? FontWeight.w500 : FontWeight.w400,
+                color: active
+                    ? (isDark ? AppColors.darkText : AppColors.lightText)
+                    : isDark
+                    ? AppColors.darkMuted
+                    : AppColors.lightMuted,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     ),
   );
 }
@@ -547,7 +777,11 @@ class _GradientButton extends StatefulWidget {
   final VoidCallback? onPressed;
   final bool loading;
   final String label;
-  const _GradientButton({required this.onPressed, required this.loading, required this.label});
+  const _GradientButton({
+    required this.onPressed,
+    required this.loading,
+    required this.label,
+  });
 
   @override
   State<_GradientButton> createState() => _GradientButtonState();
@@ -565,22 +799,45 @@ class _GradientButtonState extends State<_GradientButton> {
       height: 52,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
-        gradient: const LinearGradient(colors: [AppColors.accent, Color(0xFF5B21B6)]),
-        boxShadow: widget.onPressed != null ? [BoxShadow(
-          color: AppColors.accent.withValues(alpha: _hovered ? 0.50 : 0.30),
-          blurRadius: _hovered ? 20 : 12, offset: const Offset(0, 4),
-        )] : [],
+        gradient: const LinearGradient(
+          colors: [AppColors.accent, Color(0xFF5B21B6)],
+        ),
+        boxShadow: widget.onPressed != null
+            ? [
+                BoxShadow(
+                  color: AppColors.accent.withValues(
+                    alpha: _hovered ? 0.50 : 0.30,
+                  ),
+                  blurRadius: _hovered ? 20 : 12,
+                  offset: const Offset(0, 4),
+                ),
+              ]
+            : [],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
           onTap: widget.onPressed,
-          child: Center(child: widget.loading
-            ? const SizedBox(width: 22, height: 22,
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
-            : Text(widget.label, style: GoogleFonts.inter(color: Colors.white,
-                fontWeight: FontWeight.w600, fontSize: 15))),
+          child: Center(
+            child: widget.loading
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2.5,
+                    ),
+                  )
+                : Text(
+                    widget.label,
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
+                  ),
+          ),
         ),
       ),
     ),

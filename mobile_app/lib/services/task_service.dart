@@ -9,19 +9,24 @@ import 'auth_service.dart';
 class TaskCreationResult {
   final bool success;
   final String? errorMessage;
-  final Map<String, dynamic>? conflictData; // Additional data for equal priority conflict
+  final Map<String, dynamic>?
+  conflictData; // Additional data for equal priority conflict
   TaskCreationResult(this.success, [this.errorMessage, this.conflictData]);
 }
 
 class TaskService {
   static Future<List<Task>> getAllTasks() async {
-     final response = await ApiService.get(ApiConfig.baseUrl + ApiConfig.tasks, token: await AuthService.getToken());
-     if (response.statusCode == 200) {
-       final List<dynamic> data = jsonDecode(response.body);
-       return data.map((e) => Task.fromJson(e)).toList();
-     }
-     return [];
+    final response = await ApiService.get(
+      ApiConfig.baseUrl + ApiConfig.tasks,
+      token: await AuthService.getToken(),
+    );
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((e) => Task.fromJson(e)).toList();
+    }
+    return [];
   }
+
   static Future<TaskCreationResult> createTask({
     required String title,
     String? description,
@@ -57,21 +62,29 @@ class TaskService {
 
     // Add preferred time if manual scheduling is used
     if (preferredStartTime != null) {
-      body["preferred_start_time"] = "${preferredStartTime.hour.toString().padLeft(2, '0')}:${preferredStartTime.minute.toString().padLeft(2, '0')}";
+      body["preferred_start_time"] =
+          "${preferredStartTime.hour.toString().padLeft(2, '0')}:${preferredStartTime.minute.toString().padLeft(2, '0')}";
     }
     if (preferredEndTime != null) {
-      body["preferred_end_time"] = "${preferredEndTime.hour.toString().padLeft(2, '0')}:${preferredEndTime.minute.toString().padLeft(2, '0')}";
+      body["preferred_end_time"] =
+          "${preferredEndTime.hour.toString().padLeft(2, '0')}:${preferredEndTime.minute.toString().padLeft(2, '0')}";
     }
 
     // Send start/end times if provided, regardless of recurrence
-    if (startTime != null) body["start_time"] = "${startTime.hour}:${startTime.minute}";
+    if (startTime != null) {
+      body["start_time"] = "${startTime.hour}:${startTime.minute}";
+    }
     if (endTime != null) body["end_time"] = "${endTime.hour}:${endTime.minute}";
 
     if (isRecurring) {
-        body["is_recurring"] = true;
-        body["recurrence_days"] = recurrenceDays?.join(",");
-        if (dateRangeStart != null) body["date_range_start"] = dateRangeStart.toIso8601String();
-        if (dateRangeEnd != null) body["date_range_end"] = dateRangeEnd.toIso8601String();
+      body["is_recurring"] = true;
+      body["recurrence_days"] = recurrenceDays?.join(",");
+      if (dateRangeStart != null) {
+        body["date_range_start"] = dateRangeStart.toIso8601String();
+      }
+      if (dateRangeEnd != null) {
+        body["date_range_end"] = dateRangeEnd.toIso8601String();
+      }
     }
 
     final response = await ApiService.post(
@@ -81,13 +94,17 @@ class TaskService {
     );
 
     if (response.statusCode == 201) {
-       return TaskCreationResult(true);
+      return TaskCreationResult(true);
     } else if (response.statusCode == 409) {
-       // Conflict
-       final data = jsonDecode(response.body);
-       return TaskCreationResult(false, data['message'] ?? "Time slot overlap detected", data);
+      // Conflict
+      final data = jsonDecode(response.body);
+      return TaskCreationResult(
+        false,
+        data['message'] ?? "Time slot overlap detected",
+        data,
+      );
     } else {
-       return TaskCreationResult(false, "Failed to create task");
+      return TaskCreationResult(false, "Failed to create task");
     }
   }
 
@@ -95,7 +112,14 @@ class TaskService {
   static String _sanitizeInput(String input) {
     // Remove potential script tags and trim whitespace
     return input
-        .replaceAll(RegExp(r'<script[^>]*>.*?</script>', caseSensitive: false, dotAll: true), '')
+        .replaceAll(
+          RegExp(
+            r'<script[^>]*>.*?</script>',
+            caseSensitive: false,
+            dotAll: true,
+          ),
+          '',
+        )
         .replaceAll(RegExp(r'<[^>]*>'), '') // Remove HTML tags
         .trim();
   }
@@ -116,17 +140,14 @@ class TaskService {
 
   /// Resolve a task conflict when two tasks request the same time slot with equal priority.
   /// - [winnerTaskId]: This task will keep the time slot block.
-  /// - [loserTaskId]: This task gets removed from the fixed schedule, becomes flexible, 
+  /// - [loserTaskId]: This task gets removed from the fixed schedule, becomes flexible,
   ///   and gets re-allocated automatically by the Python AI scheduler.
   static Future<bool> resolveConflict(int winnerTaskId, int loserTaskId) async {
     final token = await AuthService.getToken();
     final response = await ApiService.post(
       '${ApiConfig.baseUrl}${ApiConfig.tasks}/resolve-conflict',
       token: token,
-      body: {
-        'winnerTaskId': winnerTaskId,
-        'loserTaskId': loserTaskId,
-      },
+      body: {'winnerTaskId': winnerTaskId, 'loserTaskId': loserTaskId},
     );
     return response.statusCode == 200;
   }
@@ -142,7 +163,10 @@ class TaskService {
     return response.statusCode == 200;
   }
 
-  static Future<bool> updateTask(int taskId, Map<String, dynamic> fields) async {
+  static Future<bool> updateTask(
+    int taskId,
+    Map<String, dynamic> fields,
+  ) async {
     final token = await AuthService.getToken();
     final response = await ApiService.patch(
       '${ApiConfig.baseUrl}/api/tasks/$taskId',
@@ -158,6 +182,6 @@ class TaskService {
       '${ApiConfig.baseUrl}/api/tasks/$taskId',
       token: token,
     );
-    return response.statusCode == 200;
+    return response.statusCode == 200 || response.statusCode == 204;
   }
 }

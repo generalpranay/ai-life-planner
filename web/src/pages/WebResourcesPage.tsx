@@ -1,7 +1,8 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Plus, Trash2, X, Loader2, Globe, ExternalLink, Link2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
+import { getApiErrorMessage } from '../lib/errors';
 
 interface WebResource { id: number; name: string; url: string; description?: string; category?: string; }
 
@@ -35,8 +36,8 @@ function ResourceModal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
       await api.post('/web-resources', { name: title, url, description: description || undefined, category: category || undefined });
       toast.success('Resource saved');
       onSaved(); onClose();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Save failed');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Save failed'));
     } finally { setLoading(false); }
   };
 
@@ -91,20 +92,20 @@ export default function WebResourcesPage() {
   const [showModal, setShowModal] = useState(false);
   const [filter, setFilter] = useState('all');
 
-  const fetchResources = async () => {
-    setLoading(true);
+  const fetchResources = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       const { data } = await api.get('/web-resources');
       setResources(Array.isArray(data) ? data : data.resources ?? []);
     } catch { toast.error('Could not load resources'); }
     finally { setLoading(false); }
-  };
+  }, []);
 
-  useEffect(() => { fetchResources(); }, []);
+  useEffect(() => { void fetchResources(false); }, [fetchResources]);
 
   const deleteResource = async (id: number) => {
     if (!confirm('Delete this resource?')) return;
-    try { await api.delete(`/web-resources/${id}`); toast.success('Resource deleted'); fetchResources(); }
+    try { await api.delete(`/web-resources/${id}`); toast.success('Resource deleted'); void fetchResources(); }
     catch { toast.error('Delete failed'); }
   };
 
@@ -218,7 +219,7 @@ export default function WebResourcesPage() {
         )}
       </div>
 
-      {showModal && <ResourceModal onClose={() => setShowModal(false)} onSaved={fetchResources} />}
+      {showModal && <ResourceModal onClose={() => setShowModal(false)} onSaved={() => { void fetchResources(); }} />}
     </div>
   );
 }
